@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+android/app/build/
+tv-app/android/.gradle/
+tv-app/android/build/
+tv-app/android/app/build/
+.env
+*.apk
+*.jks

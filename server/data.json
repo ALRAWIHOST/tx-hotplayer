@@ -1,0 +1,18 @@
+{
+  "devices": [],
+  "playlists": [
+    {
+      "id": "6Rt2TMpWEkQensxMigWuK",
+      "name": "Test IPTV",
+      "type": "m3u",
+      "serverUrl": "",
+      "username": "",
+      "password": "",
+      "m3uText": "http://line.crystalott.net:80/get.php?username=m29iTXJmm2aTgvv&password=1V2G1R5AJC&output=ts&type=m3u_plus",
+      "createdAt": "2026-05-26T02:44:14.434Z"
+    }
+  ],
+  "settings": {
+    "appName": "Server Player"
+  }
+}

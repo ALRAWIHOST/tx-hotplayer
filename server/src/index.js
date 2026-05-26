@@ -1,0 +1,281 @@
+import dotenv from "dotenv";
+import pkg from "pg";
+import express from "express";
+import cors from "cors";
+import axios from "axios";
+
+dotenv.config();
+
+const { Pool } = pkg;
+
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+const pool = new Pool({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+});
+
+let playlistCache = {};
+let playlistLoading = {};
+
+function parseM3U(text) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const channels = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith("#EXTINF")) {
+      const info = lines[i];
+      const url = lines[i + 1];
+
+      if (!url || url.startsWith("#")) continue;
+
+      const name = info.split(",").pop()?.trim() || "Unknown Channel";
+      const logo = info.match(/tvg-logo="([^"]+)"/)?.[1] || "";
+      const group = info.match(/group-title="([^"]+)"/)?.[1] || "Live";
+
+      channels.push({
+        id: channels.length + 1,
+        name,
+        logo,
+        group,
+        url,
+      });
+    }
+  }
+
+  return channels;
+}
+
+async function getPlaylistById(id) {
+  const result = await pool.query(
+    `
+    SELECT *
+    FROM playlists
+    WHERE id = $1
+    LIMIT 1
+    `,
+    [id]
+  );
+
+  return result.rows[0];
+}
+
+async function loadM3UChannels(playlist) {
+  if (!playlist || playlist.type !== "m3u") {
+    return [];
+  }
+
+  if (playlistCache[playlist.id]) {
+    console.log("Using cached playlist");
+    return playlistCache[playlist.id];
+  }
+
+  if (playlistLoading[playlist.id]) {
+    console.log("Waiting for playlist loading...");
+    return await playlistLoading[playlist.id];
+  }
+
+  playlistLoading[playlist.id] = (async () => {
+    console.log("Loading playlist from remote server...");
+
+    const response = await axios.get(playlist.server_url, {
+      timeout: 60000,
+      responseType: "text",
+      headers: {
+        "User-Agent": "VLC/3.0.18 LibVLC/3.0.18",
+        "Accept": "*/*",
+        "Connection": "keep-alive",
+        "Referer": playlist.server_url,
+      },
+      validateStatus: () => true,
+    });
+
+    if (response.status !== 200) {
+      throw new Error(`M3U server blocked request: ${response.status}`);
+    }
+
+    const channels = parseM3U(response.data).slice(0, 100);
+
+    playlistCache[playlist.id] = channels;
+    delete playlistLoading[playlist.id];
+
+    return channels;
+  })();
+
+  return await playlistLoading[playlist.id];
+}
+
+app.get("/health", async (req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.json({ ok: true, database: "connected" });
+  } catch (error) {
+    res.json({ ok: true, database: "not connected", error: error.message });
+  }
+});
+
+app.get("/devices", async (req, res) => {
+  const result = await pool.query(`
+    SELECT id, mac, active, blocked, expire_at, playlist_id, created_at
+    FROM devices
+    ORDER BY id DESC
+  `);
+
+  res.json(result.rows);
+});
+
+app.post("/devices/activate", async (req, res) => {
+  const { mac, expire_at } = req.body;
+
+  if (!mac) {
+    return res.status(400).json({
+      success: false,
+      message: "MAC is required",
+    });
+  }
+
+  const finalExpireAt = expire_at || "2026-12-31";
+
+  await pool.query(
+    `
+    INSERT INTO devices (mac, active, blocked, expire_at, playlist_id)
+    VALUES ($1, true, false, $2, 1)
+    ON CONFLICT (mac)
+    DO UPDATE SET
+      active = true,
+      blocked = false,
+      expire_at = EXCLUDED.expire_at,
+      playlist_id = 1
+    `,
+    [mac, finalExpireAt]
+  );
+
+  await pool.query(
+    `
+    INSERT INTO activation_logs (mac, action)
+    VALUES ($1, $2)
+    `,
+    [mac, "activated"]
+  );
+
+  res.json({
+    success: true,
+  });
+});
+
+app.post("/devices/block", async (req, res) => {
+  const { mac } = req.body;
+
+  if (!mac) {
+    return res.status(400).json({
+      success: false,
+      message: "MAC is required",
+    });
+  }
+
+  const result = await pool.query(
+    `
+    UPDATE devices
+    SET blocked = true, active = false
+    WHERE mac = $1
+    RETURNING *
+    `,
+    [mac]
+  );
+
+  if (result.rows.length === 0) {
+    return res.status(404).json({
+      success: false,
+      message: "Device not found",
+    });
+  }
+
+  await pool.query(
+    `
+    INSERT INTO activation_logs (mac, action)
+    VALUES ($1, $2)
+    `,
+    [mac, "blocked"]
+  );
+
+  res.json({
+    success: true,
+  });
+});
+
+app.get("/device/:mac", async (req, res) => {
+  try {
+    const mac = req.params.mac;
+
+    const result = await pool.query(
+      `
+      SELECT *
+      FROM devices
+      WHERE mac = $1
+      LIMIT 1
+      `,
+      [mac]
+    );
+
+    const device = result.rows[0];
+
+    if (!device || !device.active) {
+      return res.json({
+        active: false,
+        message: "Device not activated",
+      });
+    }
+
+    if (device.blocked) {
+      return res.json({
+        active: false,
+        message: "Device blocked",
+      });
+    }
+
+    if (new Date() > new Date(device.expire_at)) {
+      return res.json({
+        active: false,
+        message: "Subscription expired",
+      });
+    }
+
+    const playlist = await getPlaylistById(device.playlist_id);
+
+    if (!playlist) {
+      return res.json({
+        active: false,
+        message: "No playlist assigned",
+      });
+    }
+
+    const channels = await loadM3UChannels(playlist);
+
+    res.json({
+      active: true,
+      expire_at: device.expire_at,
+      playlist: {
+        id: playlist.id,
+        name: playlist.name,
+        type: playlist.type,
+        channels,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      active: false,
+      message: "Failed to load playlist",
+      error: error.message,
+    });
+  }
+});
+
+app.listen(4000, () => {
+  console.log("API running on http://localhost:4000");
+});
