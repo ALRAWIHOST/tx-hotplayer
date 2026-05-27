@@ -284,7 +284,7 @@ app.post("/devices/assign-playlist", async (req, res) => {
   }
 });
 
-app.get("/device/:mac", async (req, res) => {
+app.get("/device/:mac", async (req, res
   try {
     const mac = req.params.mac;
 
@@ -313,8 +313,6 @@ app.get("/device/:mac", async (req, res) => {
       return res.json({ active: false, message: "No playlist assigned" });
     }
 
-    const channels = await loadM3UChannels(playlist);
-
     res.json({
       active: true,
       expire_at: device.expire_at,
@@ -322,7 +320,7 @@ app.get("/device/:mac", async (req, res) => {
         id: playlist.id,
         name: playlist.name,
         type: playlist.type,
-        channels,
+        m3u_url: playlist.server_url
       },
     });
   } catch (error) {
