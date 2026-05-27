@@ -8,3 +8,4 @@ tv-app/android/app/build/
 .env
 *.apk
 *.jks
+/generated/prisma

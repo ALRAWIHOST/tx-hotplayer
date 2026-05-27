@@ -7,7 +7,42 @@ import axios from "axios";
 dotenv.config();
 
 const { Pool } = pkg;
+async function initDatabase() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS playlists (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL,
+      server_url TEXT,
+      username TEXT,
+      password TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS devices (
+      id SERIAL PRIMARY KEY,
+      mac TEXT UNIQUE NOT NULL,
+      active BOOLEAN DEFAULT false,
+      blocked BOOLEAN DEFAULT false,
+      expire_at DATE,
+      playlist_id INTEGER REFERENCES playlists(id),
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS activation_logs (
+      id SERIAL PRIMARY KEY,
+      mac TEXT,
+      action TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  console.log("Database tables ready");
+}
 const app = express();
 
 app.use(cors());
@@ -276,6 +311,7 @@ app.get("/device/:mac", async (req, res) => {
   }
 });
 
-app.listen(4000, () => {
+app.listen(4000, async () => {
+  await initDatabase();
   console.log("API running on http://localhost:4000");
 });
