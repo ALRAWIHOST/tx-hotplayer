@@ -311,7 +311,18 @@ app.get("/device/:mac", async (req, res) => {
   }
 });
 
-app.listen(4000, async () => {
-  await initDatabase();
-  console.log("API running on http://localhost:4000");
-});
+const PORT = process.env.PORT || 4000;
+
+async function startServer() {
+  try {
+    await initDatabase();
+
+    app.listen(PORT, () => {
+      console.log(`API running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Server failed:", error);
+  }
+}
+
+startServer();
