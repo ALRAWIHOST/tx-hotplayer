@@ -186,7 +186,7 @@ app.post("/devices/activate", async (req, res) => {
       active = true,
       blocked = false,
       expire_at = EXCLUDED.expire_at,
-      playlist_id = 1
+      playlist_id = NULL
     `,
     [mac, finalExpireAt]
   );
