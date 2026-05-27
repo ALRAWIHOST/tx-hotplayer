@@ -166,42 +166,52 @@ app.get("/devices", async (req, res) => {
 });
 
 app.post("/devices/activate", async (req, res) => {
-  const { mac, expire_at } = req.body;
+  try {
+    const { mac, expire_at } = req.body;
 
-  if (!mac) {
-    return res.status(400).json({
+    if (!mac) {
+      return res.status(400).json({
+        success: false,
+        message: "MAC is required",
+      });
+    }
+
+    const finalExpireAt = expire_at || "2026-12-31";
+
+    await pool.query(
+      `
+      INSERT INTO devices (mac, active, blocked, expire_at, playlist_id)
+      VALUES ($1, true, false, $2, NULL)
+      ON CONFLICT (mac)
+      DO UPDATE SET
+        active = true,
+        blocked = false,
+        expire_at = EXCLUDED.expire_at,
+        playlist_id = NULL
+      `,
+      [mac, finalExpireAt]
+    );
+
+    await pool.query(
+      `
+      INSERT INTO activation_logs (mac, action)
+      VALUES ($1, $2)
+      `,
+      [mac, "activated"]
+    );
+
+    res.json({
+      success: true,
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
       success: false,
-      message: "MAC is required",
+      error: error.message,
     });
   }
-
-  const finalExpireAt = expire_at || "2026-12-31";
-
-  await pool.query(
-    `
-    INSERT INTO devices (mac, active, blocked, expire_at, playlist_id)
-    VALUES ($1, true, false, $2, 1)
-    ON CONFLICT (mac)
-    DO UPDATE SET
-      active = true,
-      blocked = false,
-      expire_at = EXCLUDED.expire_at,
-      playlist_id = NULL
-    `,
-    [mac, finalExpireAt]
-  );
-
-  await pool.query(
-    `
-    INSERT INTO activation_logs (mac, action)
-    VALUES ($1, $2)
-    `,
-    [mac, "activated"]
-  );
-
-  res.json({
-    success: true,
-  });
 });
 
 app.post("/devices/block", async (req, res) => {
