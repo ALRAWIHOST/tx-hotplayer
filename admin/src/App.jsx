@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import './style.css';
 
-const API = 'https://tx-hotplayer.onrender.com';
+const API = 'https://tx-hotplayer-api.onrender.com';
 
 function App() {
   const [mac, setMac] = useState('');

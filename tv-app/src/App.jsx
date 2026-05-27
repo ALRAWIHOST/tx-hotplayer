@@ -12,7 +12,7 @@ import {
 
 import './style.css';
 
-const API = import.meta.env.VITE_API_URL || 'https://tx-hotplayer.onrender.com';
+const API = import.meta.env.VITE_API_URL || 'https://tx-hotplayer-api.onrender.com';
 const FIXED_MAC = 'TV:A0:9F:31:06:8D';
 
 function App() {

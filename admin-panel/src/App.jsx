@@ -9,7 +9,7 @@ import {
 
 import './App.css';
 
-const API = 'https://tx-hotplayer.onrender.com';
+const API = 'https://tx-hotplayer-api.onrender.com';
 
 export default function App() {
   const [devices, setDevices] = useState([]);
