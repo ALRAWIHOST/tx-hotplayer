@@ -233,10 +233,16 @@ app.post("/devices/block", async (req, res) => {
 
   await pool.query(
     `
-    INSERT INTO activation_logs (mac, action)
-    VALUES ($1, $2)
+    INSERT INTO devices (mac, active, blocked, expire_at, playlist_id)
+    VALUES ($1, true, false, $2, NULL)
+    ON CONFLICT (mac)
+    DO UPDATE SET
+      active = true,
+      blocked = false,
+      expire_at = EXCLUDED.expire_at,
+      playlist_id = NULL
     `,
-    [mac, "blocked"]
+    [mac, finalExpireAt]
   );
 
   res.json({
