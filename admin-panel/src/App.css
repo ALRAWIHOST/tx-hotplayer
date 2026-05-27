@@ -1,0 +1,160 @@
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  background:
+    radial-gradient(circle at top left, rgba(37,99,235,.18), transparent 35%),
+    #020617;
+  color:#f8fafc;
+  font-family:Inter,Arial,sans-serif;
+}
+
+button,input{
+  font:inherit;
+}
+
+.app{
+  min-height:100vh;
+  padding:42px 52px;
+}
+
+.topbar{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  margin-bottom:34px;
+}
+
+.topbar h1{
+  display:flex;
+  gap:16px;
+  align-items:center;
+  margin:0;
+  font-size:42px;
+  font-weight:900;
+  letter-spacing:-1px;
+}
+
+.topbar h1 svg{
+  color:#4f6cff;
+}
+
+.topbar h1::first-letter{
+  color:white;
+}
+
+.topbar h1 span,
+.topbar h1{
+  color:#fff;
+}
+
+.topbar p{
+  margin:8px 0 0 48px;
+  color:#cbd5e1;
+  font-size:20px;
+}
+
+button{
+  background:linear-gradient(135deg,#2563eb,#3159ff);
+  color:white;
+  border:0;
+  border-radius:14px;
+  padding:14px 22px;
+  display:flex;
+  gap:10px;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  font-weight:700;
+  box-shadow:0 12px 30px rgba(37,99,235,.25);
+}
+
+.card{
+  background:linear-gradient(180deg,rgba(15,23,42,.95),rgba(2,6,23,.9));
+  border:1px solid #334155;
+  border-radius:26px;
+  padding:28px;
+  margin-bottom:26px;
+  box-shadow:0 18px 50px rgba(0,0,0,.25);
+}
+
+.card h2{
+  display:flex;
+  gap:12px;
+  align-items:center;
+  margin:0 0 22px;
+  color:#fff;
+  font-size:28px;
+  font-weight:900;
+}
+
+.card h2 svg{
+  color:#4f6cff;
+}
+
+form{
+  display:grid;
+  gap:16px;
+}
+
+input{
+  background:#020617;
+  color:#fff;
+  border:1px solid #334155;
+  border-radius:16px;
+  padding:18px 20px;
+  outline:none;
+  font-size:18px;
+}
+
+input::placeholder{
+  color:#94a3b8;
+}
+
+input:focus{
+  border-color:#4f6cff;
+  box-shadow:0 0 0 3px rgba(79,108,255,.18);
+}
+
+.device{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:#020617;
+  border:1px solid #334155;
+  border-radius:22px;
+  padding:22px;
+  margin-top:14px;
+}
+
+.device div{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.device b{
+  font-size:24px;
+  color:#fff;
+}
+
+.device small{
+  color:#cbd5e1;
+  font-size:16px;
+}
+
+.device small::first-letter{
+  color:#22c55e;
+}
+
+.danger{
+  background:linear-gradient(135deg,#ef4444,#dc2626);
+  box-shadow:0 12px 30px rgba(220,38,38,.25);
+}
+
+@media(max-width:800px){
+  .app{padding:24px}
+  .topbar{flex-direction:column;gap:18px}
+  .topbar h1{font-size:32px}
+  .topbar p{margin-left:0}
+}
