@@ -1,19 +1,37 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Server, Tv, RefreshCcw } from 'lucide-react';
+import { Server, Tv, RefreshCcw, Wifi } from 'lucide-react';
 import './style.css';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const API =
+  import.meta.env.VITE_API_URL || 'https://tx-hotplayer.onrender.com';
 
 function App() {
   const [devices, setDevices] = useState([]);
   const [mac, setMac] = useState('TV:A0:9F:31:06:8D');
   const [expireAt, setExpireAt] = useState('2026-12-31');
+  const [status, setStatus] = useState('Checking...');
+  const [loading, setLoading] = useState(false);
+
+  async function checkHealth() {
+    try {
+      const res = await fetch(`${API}/health`);
+      const data = await res.json();
+      setStatus(data.database === 'connected' ? 'Cloud Connected' : 'Database Error');
+    } catch {
+      setStatus('Server Offline');
+    }
+  }
 
   async function load() {
-    const res = await fetch(`${API}/devices`);
-    const data = await res.json();
-    setDevices(data);
+    try {
+      setLoading(true);
+      const res = await fetch(`${API}/devices`);
+      const data = await res.json();
+      setDevices(Array.isArray(data) ? data : []);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function activateDevice(e) {
@@ -25,7 +43,7 @@ function App() {
       body: JSON.stringify({ mac, expire_at: expireAt })
     });
 
-    load();
+    await load();
   }
 
   async function blockDevice(deviceMac) {
@@ -35,21 +53,28 @@ function App() {
       body: JSON.stringify({ mac: deviceMac })
     });
 
-    load();
+    await load();
   }
 
   useEffect(() => {
+    checkHealth();
     load();
   }, []);
 
   return (
     <main>
       <header>
-        <h1><Server /> IPTV Admin</h1>
+        <h1><Server /> TX HOTPLAYER Admin</h1>
         <button onClick={load}><RefreshCcw size={16}/> Refresh</button>
       </header>
 
       <section className="grid">
+        <div className="card">
+          <h2><Wifi /> Cloud Status</h2>
+          <p>{status}</p>
+          <small>{API}</small>
+        </div>
+
         <div className="card">
           <h2>Activate Device</h2>
 
@@ -69,18 +94,12 @@ function App() {
             <button>Activate Device</button>
           </form>
         </div>
-
-        <div className="card">
-          <h2>Instructions</h2>
-          <p>1. العميل يرسل لك MAC.</p>
-          <p>2. أدخل MAC هنا.</p>
-          <p>3. اختر تاريخ انتهاء الاشتراك.</p>
-          <p>4. اضغط Activate Device.</p>
-        </div>
       </section>
 
       <section className="card">
-        <h2><Tv/> Devices</h2>
+        <h2><Tv/> Devices {loading ? '...' : `(${devices.length})`}</h2>
+
+        {devices.length === 0 && <p>No devices found.</p>}
 
         {devices.map((d, index) => (
           <div className="device" key={index}>
