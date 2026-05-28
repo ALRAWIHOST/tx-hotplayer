@@ -535,4 +535,62 @@ app.delete("/playlists/:id", async (req, res) => {
     });
   }
 });
+app.post("/devices/delete-playlist", async (req, res) => {
+  try {
+    const { mac } = req.body;
+
+    if (!mac) {
+      return res.status(400).json({
+        success: false,
+        message: "MAC is required"
+      });
+    }
+
+    const deviceResult = await pool.query(
+      `SELECT * FROM devices WHERE mac = $1 LIMIT 1`,
+      [mac]
+    );
+
+    const device = deviceResult.rows[0];
+
+    if (!device) {
+      return res.status(404).json({
+        success: false,
+        message: "Device not found"
+      });
+    }
+
+    if (!device.playlist_id) {
+      return res.status(404).json({
+        success: false,
+        message: "No playlist assigned"
+      });
+    }
+
+    const playlistId = device.playlist_id;
+
+    await pool.query(
+      `UPDATE devices SET playlist_id = NULL WHERE mac = $1`,
+      [mac]
+    );
+
+    await pool.query(
+      `DELETE FROM playlists WHERE id = $1`,
+      [playlistId]
+    );
+
+    playlistCache = {};
+    playlistLoading = {};
+
+    res.json({
+      success: true,
+      message: "Playlist deleted successfully"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
 startServer();
