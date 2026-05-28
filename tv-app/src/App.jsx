@@ -13,12 +13,22 @@ import {
 import './style.css';
 
 const API = import.meta.env.VITE_API_URL || 'https://tx-hotplayer-api.onrender.com';
-const FIXED_MAC = 'TV:A0:9F:31:06:8D';
+function getDeviceMac() {
+  let id = localStorage.getItem('tx_device_mac');
+
+  if (!id) {
+    const random = Math.random().toString(16).slice(2, 10).toUpperCase();
+    id = `TX:${random.match(/.{1,2}/g).join(':')}`;
+    localStorage.setItem('tx_device_mac', id);
+  }
+
+  return id;
+}
 
 function App() {
   const videoRef = useRef(null);
 
-  const [mac] = useState(FIXED_MAC);
+  const [mac] = useState(getDeviceMac());
   const [status, setStatus] = useState('pending');
   const [channels, setChannels] = useState([]);
   const [selected, setSelected] = useState(null);
