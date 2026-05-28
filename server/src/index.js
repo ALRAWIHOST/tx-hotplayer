@@ -14,9 +14,7 @@ app.use(express.json());
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  ssl: { rejectUnauthorized: false }
 });
 
 let playlistCache = {};
@@ -60,7 +58,7 @@ async function initDatabase() {
 }
 
 function parseM3U(text) {
-  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const channels = [];
 
   for (let i = 0; i < lines.length; i++) {
@@ -75,7 +73,7 @@ function parseM3U(text) {
         name: info.split(",").pop()?.trim() || "Unknown Channel",
         logo: info.match(/tvg-logo="([^"]+)"/)?.[1] || "",
         group: info.match(/group-title="([^"]+)"/)?.[1] || "Live",
-        url,
+        url
       });
     }
   }
@@ -102,17 +100,9 @@ async function getActiveDevice(mac) {
 
   const device = result.rows[0];
 
-  if (!device || !device.active) {
-    return { error: "Device not activated" };
-  }
-
-  if (device.blocked) {
-    return { error: "Device blocked" };
-  }
-
-  if (new Date() > new Date(device.expire_at)) {
-    return { error: "Subscription expired" };
-  }
+  if (!device || !device.active) return { error: "Device not activated" };
+  if (device.blocked) return { error: "Device blocked" };
+  if (new Date() > new Date(device.expire_at)) return { error: "Subscription expired" };
 
   return { device };
 }
@@ -124,30 +114,68 @@ async function loadM3UChannels(playlist) {
   if (playlistLoading[playlist.id]) return await playlistLoading[playlist.id];
 
   playlistLoading[playlist.id] = (async () => {
-    const response = await axios.get(playlist.server_url, {
+    const response = await axios({
+      method: "get",
+      url: playlist.server_url,
+      responseType: "stream",
       timeout: 120000,
-      responseType: "text",
       headers: {
         "User-Agent": "Mozilla/5.0",
-        "Accept": "*/*"
+        "Accept": "*/*",
+        "Connection": "keep-alive"
       },
-      validateStatus: () => true,
+      maxRedirects: 5,
+      decompress: true,
+      validateStatus: () => true
     });
 
     if (response.status !== 200) {
       throw new Error(`M3U server blocked request: ${response.status}`);
     }
 
-    const channels = parseM3U(response.data).slice(0, 300);
+    return await new Promise((resolve, reject) => {
+      let raw = "";
+      let finished = false;
 
-    playlistCache[playlist.id] = channels;
-    delete playlistLoading[playlist.id];
+      response.data.on("data", chunk => {
+        if (finished) return;
 
-    return channels;
+        raw += chunk.toString();
+
+        const found = (raw.match(/#EXTINF/g) || []).length;
+
+        if (found >= 300) {
+          finished = true;
+          response.data.destroy();
+
+          const channels = parseM3U(raw).slice(0, 300);
+          playlistCache[playlist.id] = channels;
+          delete playlistLoading[playlist.id];
+
+          resolve(channels);
+        }
+      });
+
+      response.data.on("end", () => {
+        if (finished) return;
+
+        const channels = parseM3U(raw).slice(0, 300);
+        playlistCache[playlist.id] = channels;
+        delete playlistLoading[playlist.id];
+
+        resolve(channels);
+      });
+
+      response.data.on("error", err => {
+        delete playlistLoading[playlist.id];
+        reject(err);
+      });
+    });
   })();
 
   return await playlistLoading[playlist.id];
 }
+
 app.get("/", (req, res) => {
   res.send("TX HOTPLAYER API is running");
 });
@@ -176,10 +204,7 @@ app.post("/devices/activate", async (req, res) => {
     const { mac, expire_at } = req.body;
 
     if (!mac) {
-      return res.status(400).json({
-        success: false,
-        message: "MAC is required"
-      });
+      return res.status(400).json({ success: false, message: "MAC is required" });
     }
 
     const finalExpireAt = expire_at || "2026-12-31";
@@ -204,7 +229,6 @@ app.post("/devices/activate", async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error(error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -214,10 +238,7 @@ app.post("/devices/block", async (req, res) => {
     const { mac } = req.body;
 
     if (!mac) {
-      return res.status(400).json({
-        success: false,
-        message: "MAC is required"
-      });
+      return res.status(400).json({ success: false, message: "MAC is required" });
     }
 
     const result = await pool.query(
@@ -231,10 +252,7 @@ app.post("/devices/block", async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Device not found"
-      });
+      return res.status(404).json({ success: false, message: "Device not found" });
     }
 
     await pool.query(
@@ -244,7 +262,6 @@ app.post("/devices/block", async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error(error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -277,7 +294,6 @@ app.post("/playlists", async (req, res) => {
 
     res.json({ success: true, playlist: result.rows[0] });
   } catch (error) {
-    console.error(error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -289,7 +305,7 @@ app.post("/devices/assign-playlist", async (req, res) => {
     if (!mac || !playlist_id) {
       return res.status(400).json({
         success: false,
-        message: "MAC and playlist_id are required",
+        message: "MAC and playlist_id are required"
       });
     }
 
@@ -304,15 +320,11 @@ app.post("/devices/assign-playlist", async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Device not found"
-      });
+      return res.status(404).json({ success: false, message: "Device not found" });
     }
 
     res.json({ success: true, device: result.rows[0] });
   } catch (error) {
-    console.error(error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -322,9 +334,7 @@ app.get("/device/:mac", async (req, res) => {
     const mac = req.params.mac;
     const { device, error } = await getActiveDevice(mac);
 
-    if (error) {
-      return res.json({ active: false, message: error });
-    }
+    if (error) return res.json({ active: false, message: error });
 
     const playlist = await getPlaylistById(device.playlist_id);
 
@@ -340,14 +350,13 @@ app.get("/device/:mac", async (req, res) => {
         name: playlist.name,
         type: playlist.type,
         m3u_url: playlist.server_url
-      },
+      }
     });
   } catch (error) {
-    console.error(error);
     res.status(500).json({
       active: false,
       message: "Failed to load device",
-      error: error.message,
+      error: error.message
     });
   }
 });
@@ -358,10 +367,7 @@ app.get("/m3u/:mac", async (req, res) => {
     const { device, error } = await getActiveDevice(mac);
 
     if (error) {
-      return res.status(403).json({
-        success: false,
-        message: error
-      });
+      return res.status(403).json({ success: false, message: error });
     }
 
     const playlist = await getPlaylistById(device.playlist_id);
@@ -385,8 +391,6 @@ app.get("/m3u/:mac", async (req, res) => {
       channels
     });
   } catch (error) {
-    console.error(error);
-
     res.status(500).json({
       success: false,
       error: error.message
