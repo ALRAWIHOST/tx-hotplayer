@@ -8,7 +8,9 @@ import {
   Search,
   CheckCircle,
   XCircle,
-  Database
+  Database,
+  Trash2,
+  Unlock
 } from 'lucide-react';
 
 import './App.css';
@@ -41,10 +43,7 @@ export default function App() {
   }
 
   async function refreshAll() {
-    await Promise.all([
-      loadDevices(),
-      loadPlaylists()
-    ]);
+    await Promise.all([loadDevices(), loadPlaylists()]);
   }
 
   async function activateDevice(e) {
@@ -70,6 +69,27 @@ export default function App() {
     await loadDevices();
   }
 
+  async function unblockDevice(deviceMac) {
+    await fetch(`${API}/devices/unblock`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mac: deviceMac })
+    });
+
+    await loadDevices();
+  }
+
+  async function deleteDevice(deviceMac) {
+    const ok = window.confirm(`Delete device ${deviceMac}?`);
+    if (!ok) return;
+
+    await fetch(`${API}/devices/${encodeURIComponent(deviceMac)}`, {
+      method: 'DELETE'
+    });
+
+    await loadDevices();
+  }
+
   async function assignPlaylist(deviceMac, playlistId) {
     if (!playlistId) return;
 
@@ -89,14 +109,12 @@ export default function App() {
     refreshAll();
   }, []);
 
-  const stats = useMemo(() => {
-    return {
-      total: devices.length,
-      active: devices.filter(d => d.active && !d.blocked).length,
-      blocked: devices.filter(d => d.blocked).length,
-      withPlaylist: devices.filter(d => d.playlist_id).length
-    };
-  }, [devices]);
+  const stats = useMemo(() => ({
+    total: devices.length,
+    active: devices.filter(d => d.active && !d.blocked).length,
+    blocked: devices.filter(d => d.blocked).length,
+    withPlaylist: devices.filter(d => d.playlist_id).length
+  }), [devices]);
 
   const filteredDevices = devices.filter(d =>
     d.mac.toLowerCase().includes(query.toLowerCase())
@@ -106,52 +124,25 @@ export default function App() {
     <main className="app">
       <header className="topbar">
         <div>
-          <h1>
-            <Shield size={30}/>
-            TX HOTPLAYER Admin
-          </h1>
-
+          <h1><Shield size={30}/> TX HOTPLAYER Admin</h1>
           <p>Professional MAC Activation Dashboard</p>
         </div>
 
         <button onClick={refreshAll}>
-          <RefreshCcw size={16}/>
-          Refresh
+          <RefreshCcw size={16}/> Refresh
         </button>
       </header>
 
       <section className="stats">
-        <div className="stat-card">
-          <Tv />
-          <span>Total Devices</span>
-          <b>{stats.total}</b>
-        </div>
-
-        <div className="stat-card success">
-          <CheckCircle />
-          <span>Active</span>
-          <b>{stats.active}</b>
-        </div>
-
-        <div className="stat-card danger-card">
-          <XCircle />
-          <span>Blocked</span>
-          <b>{stats.blocked}</b>
-        </div>
-
-        <div className="stat-card">
-          <Database />
-          <span>With Playlist</span>
-          <b>{stats.withPlaylist}</b>
-        </div>
+        <div className="stat-card"><Tv /><span>Total Devices</span><b>{stats.total}</b></div>
+        <div className="stat-card success"><CheckCircle /><span>Active</span><b>{stats.active}</b></div>
+        <div className="stat-card danger-card"><XCircle /><span>Blocked</span><b>{stats.blocked}</b></div>
+        <div className="stat-card"><Database /><span>With Playlist</span><b>{stats.withPlaylist}</b></div>
       </section>
 
       <section className="layout">
         <div className="card">
-          <h2>
-            <Server size={18}/>
-            Activate Device
-          </h2>
+          <h2><Server size={18}/> Activate Device</h2>
 
           <form onSubmit={activateDevice}>
             <input
@@ -166,17 +157,12 @@ export default function App() {
               onChange={e => setExpireAt(e.target.value)}
             />
 
-            <button>
-              Activate MAC
-            </button>
+            <button>Activate MAC</button>
           </form>
         </div>
 
         <div className="card">
-          <h2>
-            <Search size={18}/>
-            Search Device
-          </h2>
+          <h2><Search size={18}/> Search Device</h2>
 
           <input
             placeholder="Search by MAC..."
@@ -184,21 +170,13 @@ export default function App() {
             onChange={e => setQuery(e.target.value)}
           />
 
-          <p className="muted">
-            Showing {filteredDevices.length} of {devices.length} devices.
-          </p>
-
-          <p className="muted">
-            Playlists loaded: {playlists.length}
-          </p>
+          <p className="muted">Showing {filteredDevices.length} of {devices.length} devices.</p>
+          <p className="muted">Playlists loaded: {playlists.length}</p>
         </div>
       </section>
 
       <section className="card">
-        <h2>
-          <Tv size={18}/>
-          Devices {loading ? '...' : `(${filteredDevices.length})`}
-        </h2>
+        <h2><Tv size={18}/> Devices {loading ? '...' : `(${filteredDevices.length})`}</h2>
 
         <div className="table">
           <div className="table-head">
@@ -206,7 +184,7 @@ export default function App() {
             <span>Status</span>
             <span>Playlist</span>
             <span>Expires</span>
-            <span>Action</span>
+            <span>Actions</span>
           </div>
 
           {filteredDevices.map(device => (
@@ -221,31 +199,32 @@ export default function App() {
                 value={device.playlist_id || ''}
                 onChange={e => assignPlaylist(device.mac, e.target.value)}
               >
-                <option value="">
-                  No Playlist
-                </option>
+                <option value="">No Playlist</option>
 
                 {playlists.map(playlist => (
-                  <option
-                    key={playlist.id}
-                    value={playlist.id}
-                  >
+                  <option key={playlist.id} value={playlist.id}>
                     #{playlist.id} {playlist.name}
                   </option>
                 ))}
               </select>
 
-              <span>
-                {device.expire_at?.slice(0, 10)}
-              </span>
+              <span>{device.expire_at?.slice(0, 10)}</span>
 
-              <button
-                className="danger"
-                onClick={() => blockDevice(device.mac)}
-              >
-                <Ban size={14}/>
-                Block
-              </button>
+              <div className="actions">
+                {device.blocked ? (
+                  <button className="success-btn" onClick={() => unblockDevice(device.mac)}>
+                    <Unlock size={14}/> Unblock
+                  </button>
+                ) : (
+                  <button className="danger" onClick={() => blockDevice(device.mac)}>
+                    <Ban size={14}/> Block
+                  </button>
+                )}
+
+                <button className="delete-btn" onClick={() => deleteDevice(device.mac)}>
+                  <Trash2 size={14}/> Delete
+                </button>
+              </div>
             </div>
           ))}
         </div>

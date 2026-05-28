@@ -153,3 +153,16 @@ select{
   padding:10px 12px;
   outline:none;
 }
+.actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.success-btn{
+  background:linear-gradient(135deg,#22c55e,#16a34a);
+}
+
+.delete-btn{
+  background:linear-gradient(135deg,#64748b,#334155);
+}
