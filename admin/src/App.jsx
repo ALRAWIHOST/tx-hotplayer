@@ -193,37 +193,68 @@ function App() {
         </div>
       </section>
 
-      <section id="upload" className="upload-box">
-        <h2>
-          <UploadCloud />
-          Upload Playlist
-        </h2>
+      <section id="upload" className="upload-wrapper">
 
-        <form onSubmit={submitPlaylist}>
-          <input
-            placeholder="MAC Address"
-            value={mac}
-            onChange={e => setMac(e.target.value)}
-          />
+        <div className="info-banner">
+          <ShieldCheck size={18}/>
+          HotPlayer app support all kinds of M3U content and XtreamCode Servers.
+        </div>
 
-          <input
-            placeholder="M3U Playlist URL"
-            value={m3uUrl}
-            onChange={e => setM3uUrl(e.target.value)}
-          />
-
-          <button disabled={loading}>
-            {loading ? 'Saving...' : 'Save Playlist'}
-          </button>
-        </form>
-
-        {message && (
-          <div className="message">
-            {message}
+        <div className="upload-card">
+          <div className="upload-header">
+            Upload your playlist
           </div>
-        )}
-      </section>
 
+          <div className="upload-body">
+            <label>Your MAC Address</label>
+
+            <input
+              placeholder="__:__:__:__:__"
+              value={mac}
+              onChange={e => setMac(e.target.value)}
+            />
+
+            <label>M3U Playlist URL</label>
+
+            <input
+              placeholder="https://example.com/playlist.m3u"
+              value={m3uUrl}
+              onChange={e => setM3uUrl(e.target.value)}
+            />
+
+            <button
+              className="yellow-btn"
+              onClick={submitPlaylist}
+              disabled={loading}
+            >
+              {loading ? 'Loading...' : 'Next'}
+            </button>
+
+            {message && (
+              <div className="message">
+                {message}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="upload-card">
+          <div className="upload-header">
+            Delete your playlist
+          </div>
+
+          <div className="upload-body">
+            <label>Your MAC Address</label>
+
+            <input placeholder="__:__:__:__:__" />
+
+            <button className="yellow-btn">
+              Delete
+            </button>
+          </div>
+        </div>
+
+      </section>
       <section id="pricing" className="pricing">
         <h2>Pricing plans</h2>
 

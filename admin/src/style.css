@@ -314,3 +314,74 @@ button:disabled{opacity:.6}
   .feature-grid{grid-template-columns:1fr}
   .pricing-grid{flex-direction:column;align-items:center}
 }
+.upload-wrapper{
+  max-width:1440px;
+  margin:50px auto;
+  padding:0 40px;
+}
+
+.info-banner{
+  background:#eef2ff;
+  border:1px solid #c7d2fe;
+  color:#4338ca;
+  border-radius:10px;
+  padding:18px 22px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-weight:700;
+  margin-bottom:24px;
+}
+
+.upload-card{
+  background:white;
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  overflow:hidden;
+  margin-bottom:24px;
+  box-shadow:0 4px 10px #00000008;
+}
+
+.upload-header{
+  padding:26px 28px;
+  font-size:22px;
+  font-weight:700;
+  border-bottom:1px solid #e5e7eb;
+}
+
+.upload-body{
+  padding:28px;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+
+.upload-body label{
+  font-weight:600;
+  color:#334155;
+}
+
+.upload-body input{
+  height:52px;
+  border:1px solid #d1d5db;
+  border-radius:8px;
+  padding:0 16px;
+  font-size:16px;
+}
+
+.yellow-btn{
+  margin-left:auto;
+  width:120px;
+  height:46px;
+  border:none;
+  border-radius:8px;
+  background:#facc15;
+  color:#111827;
+  font-size:18px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.yellow-btn:hover{
+  background:#eab308;
+}
