@@ -15,6 +15,30 @@ import './style.css';
 const API = import.meta.env.VITE_API_URL || 'https://tx-hotplayer-api.onrender.com';
 const FIXED_MAC = 'TV:A0:9F:31:06:8D';
 
+function parseM3U(text) {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const channels = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith('#EXTINF')) {
+      const info = lines[i];
+      const url = lines[i + 1];
+
+      if (!url || url.startsWith('#')) continue;
+
+      channels.push({
+        id: channels.length + 1,
+        name: info.split(',').pop()?.trim() || 'Unknown Channel',
+        logo: info.match(/tvg-logo="([^"]+)"/)?.[1] || '',
+        group: info.match(/group-title="([^"]+)"/)?.[1] || 'Live',
+        url
+      });
+    }
+  }
+
+  return channels;
+}
+
 function App() {
   const videoRef = useRef(null);
 
@@ -99,7 +123,13 @@ function App() {
         return;
       }
 
-      const list = data.playlist?.channels || [];
+      let list = data.playlist?.channels || [];
+
+      if ((!list || list.length === 0) && data.playlist?.m3u_url) {
+        const m3uRes = await fetch(data.playlist.m3u_url);
+        const m3uText = await m3uRes.text();
+        list = parseM3U(m3uText);
+      }
 
       const mapped = list
         .map((c, index) => ({
@@ -180,19 +210,14 @@ function App() {
       };
     }
 
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = selected.url;
-      video.play().catch(() => {});
-    } else {
-      video.src = selected.url;
-      video.play().catch(() => {});
-    }
+    video.src = selected.url;
+    video.play().catch(() => {});
   }, [selected]);
 
   if (loading) {
     return (
       <div className="activation">
-        <h1>🔥 Server Player</h1>
+        <h1>🔥 TX HOTPLAYER</h1>
         <p>Loading playlist...</p>
       </div>
     );
@@ -201,10 +226,10 @@ function App() {
   if (status !== 'active') {
     return (
       <div className="activation">
-        <h1>🔥 Server Player</h1>
+        <h1>🔥 TX HOTPLAYER</h1>
         <AlertCircle size={70} />
         <h2>Your MAC is not associated with any playlist</h2>
-        <p>Please send this MAC to your provider/admin</p>
+        <p>Please add your M3U playlist from the user portal</p>
         <div className="mac">{mac}</div>
 
         <button onClick={load}>
@@ -221,7 +246,7 @@ function App() {
     <div className="app">
       <aside>
         <h1>
-          <Tv /> Server Player
+          <Tv /> TX HOTPLAYER
         </h1>
 
         <p className="note">

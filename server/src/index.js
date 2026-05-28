@@ -94,6 +94,29 @@ async function getPlaylistById(id) {
   return result.rows[0];
 }
 
+async function getActiveDevice(mac) {
+  const result = await pool.query(
+    `SELECT * FROM devices WHERE mac = $1 LIMIT 1`,
+    [mac]
+  );
+
+  const device = result.rows[0];
+
+  if (!device || !device.active) {
+    return { error: "Device not activated" };
+  }
+
+  if (device.blocked) {
+    return { error: "Device blocked" };
+  }
+
+  if (new Date() > new Date(device.expire_at)) {
+    return { error: "Subscription expired" };
+  }
+
+  return { device };
+}
+
 async function loadM3UChannels(playlist) {
   if (!playlist || playlist.type !== "m3u") return [];
 
@@ -102,13 +125,11 @@ async function loadM3UChannels(playlist) {
 
   playlistLoading[playlist.id] = (async () => {
     const response = await axios.get(playlist.server_url, {
-      timeout: 60000,
+      timeout: 30000,
       responseType: "text",
       headers: {
-        "User-Agent": "VLC/3.0.18 LibVLC/3.0.18",
-        "Accept": "*/*",
-        "Connection": "keep-alive",
-        "Referer": playlist.server_url,
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "*/*"
       },
       validateStatus: () => true,
     });
@@ -117,7 +138,7 @@ async function loadM3UChannels(playlist) {
       throw new Error(`M3U server blocked request: ${response.status}`);
     }
 
-    const channels = parseM3U(response.data).slice(0, 100);
+    const channels = parseM3U(response.data);
     playlistCache[playlist.id] = channels;
     delete playlistLoading[playlist.id];
 
@@ -155,7 +176,10 @@ app.post("/devices/activate", async (req, res) => {
     const { mac, expire_at } = req.body;
 
     if (!mac) {
-      return res.status(400).json({ success: false, message: "MAC is required" });
+      return res.status(400).json({
+        success: false,
+        message: "MAC is required"
+      });
     }
 
     const finalExpireAt = expire_at || "2026-12-31";
@@ -190,7 +214,10 @@ app.post("/devices/block", async (req, res) => {
     const { mac } = req.body;
 
     if (!mac) {
-      return res.status(400).json({ success: false, message: "MAC is required" });
+      return res.status(400).json({
+        success: false,
+        message: "MAC is required"
+      });
     }
 
     const result = await pool.query(
@@ -204,7 +231,10 @@ app.post("/devices/block", async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: "Device not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Device not found"
+      });
     }
 
     await pool.query(
@@ -274,7 +304,10 @@ app.post("/devices/assign-playlist", async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: "Device not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Device not found"
+      });
     }
 
     res.json({ success: true, device: result.rows[0] });
@@ -287,24 +320,10 @@ app.post("/devices/assign-playlist", async (req, res) => {
 app.get("/device/:mac", async (req, res) => {
   try {
     const mac = req.params.mac;
+    const { device, error } = await getActiveDevice(mac);
 
-    const result = await pool.query(
-      `SELECT * FROM devices WHERE mac = $1 LIMIT 1`,
-      [mac]
-    );
-
-    const device = result.rows[0];
-
-    if (!device || !device.active) {
-      return res.json({ active: false, message: "Device not activated" });
-    }
-
-    if (device.blocked) {
-      return res.json({ active: false, message: "Device blocked" });
-    }
-
-    if (new Date() > new Date(device.expire_at)) {
-      return res.json({ active: false, message: "Subscription expired" });
+    if (error) {
+      return res.json({ active: false, message: error });
     }
 
     const playlist = await getPlaylistById(device.playlist_id);
@@ -327,8 +346,50 @@ app.get("/device/:mac", async (req, res) => {
     console.error(error);
     res.status(500).json({
       active: false,
-      message: "Failed to load playlist",
+      message: "Failed to load device",
       error: error.message,
+    });
+  }
+});
+
+app.get("/m3u/:mac", async (req, res) => {
+  try {
+    const mac = req.params.mac;
+    const { device, error } = await getActiveDevice(mac);
+
+    if (error) {
+      return res.status(403).json({
+        success: false,
+        message: error
+      });
+    }
+
+    const playlist = await getPlaylistById(device.playlist_id);
+
+    if (!playlist) {
+      return res.status(404).json({
+        success: false,
+        message: "No playlist assigned"
+      });
+    }
+
+    const channels = await loadM3UChannels(playlist);
+
+    res.json({
+      success: true,
+      playlist: {
+        id: playlist.id,
+        name: playlist.name,
+        type: playlist.type
+      },
+      channels
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      error: error.message
     });
   }
 });
