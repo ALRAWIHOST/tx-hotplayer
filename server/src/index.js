@@ -284,7 +284,7 @@ app.post("/devices/assign-playlist", async (req, res) => {
   }
 });
 
-app.get("/device/:mac", async (req, res
+app.get("/device/:mac", async (req, res) => {
   try {
     const mac = req.params.mac;
 
