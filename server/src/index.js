@@ -462,5 +462,77 @@ async function startServer() {
     console.error("Server failed:", error);
   }
 }
+app.patch("/playlists/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, server_url } = req.body;
 
+    const result = await pool.query(
+      `
+      UPDATE playlists
+      SET
+        name = COALESCE($2, name),
+        server_url = COALESCE($3, server_url)
+      WHERE id = $1
+      RETURNING *
+      `,
+      [id, name || null, server_url || null]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Playlist not found"
+      });
+    }
+
+    playlistCache = {};
+    playlistLoading = {};
+
+    res.json({
+      success: true,
+      playlist: result.rows[0]
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+app.delete("/playlists/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await pool.query(
+      `UPDATE devices SET playlist_id = NULL WHERE playlist_id = $1`,
+      [id]
+    );
+
+    const result = await pool.query(
+      `DELETE FROM playlists WHERE id = $1 RETURNING *`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Playlist not found"
+      });
+    }
+
+    playlistCache = {};
+    playlistLoading = {};
+
+    res.json({
+      success: true
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
 startServer();
