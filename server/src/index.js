@@ -14,7 +14,7 @@ app.use(express.json());
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
 });
 
 let playlistCache = {};
@@ -65,7 +65,6 @@ function parseM3U(text) {
     if (lines[i].startsWith("#EXTINF")) {
       const info = lines[i];
       const url = lines[i + 1];
-
       if (!url || url.startsWith("#")) continue;
 
       channels.push({
@@ -73,7 +72,7 @@ function parseM3U(text) {
         name: info.split(",").pop()?.trim() || "Unknown Channel",
         logo: info.match(/tvg-logo="([^"]+)"/)?.[1] || "",
         group: info.match(/group-title="([^"]+)"/)?.[1] || "Live",
-        url
+        url,
       });
     }
   }
@@ -102,7 +101,9 @@ async function getActiveDevice(mac) {
 
   if (!device || !device.active) return { error: "Device not activated" };
   if (device.blocked) return { error: "Device blocked" };
-  if (new Date() > new Date(device.expire_at)) return { error: "Subscription expired" };
+  if (device.expire_at && new Date() > new Date(device.expire_at)) {
+    return { error: "Subscription expired" };
+  }
 
   return { device };
 }
@@ -121,12 +122,12 @@ async function loadM3UChannels(playlist) {
       timeout: 120000,
       headers: {
         "User-Agent": "Mozilla/5.0",
-        "Accept": "*/*",
-        "Connection": "keep-alive"
+        Accept: "*/*",
+        Connection: "keep-alive",
       },
       maxRedirects: 5,
       decompress: true,
-      validateStatus: () => true
+      validateStatus: () => true,
     });
 
     if (response.status !== 200) {
@@ -141,7 +142,6 @@ async function loadM3UChannels(playlist) {
         if (finished) return;
 
         raw += chunk.toString();
-
         const found = (raw.match(/#EXTINF/g) || []).length;
 
         if (found >= 300) {
@@ -266,6 +266,57 @@ app.post("/devices/block", async (req, res) => {
   }
 });
 
+app.post("/devices/unblock", async (req, res) => {
+  try {
+    const { mac } = req.body;
+
+    if (!mac) {
+      return res.status(400).json({ success: false, message: "MAC is required" });
+    }
+
+    const result = await pool.query(
+      `
+      UPDATE devices
+      SET blocked = false, active = true
+      WHERE mac = $1
+      RETURNING *
+      `,
+      [mac]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Device not found" });
+    }
+
+    res.json({ success: true, device: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.delete("/devices/:mac", async (req, res) => {
+  try {
+    const mac = req.params.mac;
+
+    const result = await pool.query(
+      `
+      DELETE FROM devices
+      WHERE mac = $1
+      RETURNING *
+      `,
+      [mac]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Device not found" });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.get("/playlists", async (req, res) => {
   const result = await pool.query(`
     SELECT id, name, type, server_url, username, created_at
@@ -305,7 +356,7 @@ app.post("/devices/assign-playlist", async (req, res) => {
     if (!mac || !playlist_id) {
       return res.status(400).json({
         success: false,
-        message: "MAC and playlist_id are required"
+        message: "MAC and playlist_id are required",
       });
     }
 
@@ -349,14 +400,14 @@ app.get("/device/:mac", async (req, res) => {
         id: playlist.id,
         name: playlist.name,
         type: playlist.type,
-        m3u_url: playlist.server_url
-      }
+        m3u_url: playlist.server_url,
+      },
     });
   } catch (error) {
     res.status(500).json({
       active: false,
       message: "Failed to load device",
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -375,7 +426,7 @@ app.get("/m3u/:mac", async (req, res) => {
     if (!playlist) {
       return res.status(404).json({
         success: false,
-        message: "No playlist assigned"
+        message: "No playlist assigned",
       });
     }
 
@@ -386,14 +437,14 @@ app.get("/m3u/:mac", async (req, res) => {
       playlist: {
         id: playlist.id,
         name: playlist.name,
-        type: playlist.type
+        type: playlist.type,
       },
-      channels
+      channels,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
     });
   }
 });
