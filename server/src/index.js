@@ -138,7 +138,8 @@ async function loadM3UChannels(playlist) {
       throw new Error(`M3U server blocked request: ${response.status}`);
     }
 
-    const channels = parseM3U(response.data);
+    const channels = parseM3U(response.data).slice(0, 300);
+
     playlistCache[playlist.id] = channels;
     delete playlistLoading[playlist.id];
 
@@ -147,7 +148,6 @@ async function loadM3UChannels(playlist) {
 
   return await playlistLoading[playlist.id];
 }
-
 app.get("/", (req, res) => {
   res.send("TX HOTPLAYER API is running");
 });
