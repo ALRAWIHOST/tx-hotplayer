@@ -15,30 +15,6 @@ import './style.css';
 const API = import.meta.env.VITE_API_URL || 'https://tx-hotplayer-api.onrender.com';
 const FIXED_MAC = 'TV:A0:9F:31:06:8D';
 
-function parseM3U(text) {
-  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-  const channels = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].startsWith('#EXTINF')) {
-      const info = lines[i];
-      const url = lines[i + 1];
-
-      if (!url || url.startsWith('#')) continue;
-
-      channels.push({
-        id: channels.length + 1,
-        name: info.split(',').pop()?.trim() || 'Unknown Channel',
-        logo: info.match(/tvg-logo="([^"]+)"/)?.[1] || '',
-        group: info.match(/group-title="([^"]+)"/)?.[1] || 'Live',
-        url
-      });
-    }
-  }
-
-  return channels;
-}
-
 function App() {
   const videoRef = useRef(null);
 
@@ -110,26 +86,31 @@ function App() {
     try {
       setLoading(true);
 
-      const res = await fetch(`${API}/device/${encodeURIComponent(mac)}`);
-      const data = await res.json();
+      const deviceRes = await fetch(`${API}/device/${encodeURIComponent(mac)}`);
+      const deviceData = await deviceRes.json();
 
-      setMessage(data.message || '');
-      setPlaylistName(data.playlist?.name || '');
+      setMessage(deviceData.message || '');
+      setPlaylistName(deviceData.playlist?.name || '');
 
-      if (!data.active) {
+      if (!deviceData.active) {
         setStatus('pending');
         setChannels([]);
         setSelected(null);
         return;
       }
 
-      let list = data.playlist?.channels || [];
+      const playlistRes = await fetch(`${API}/m3u/${encodeURIComponent(mac)}`);
+      const playlistData = await playlistRes.json();
 
-      if ((!list || list.length === 0) && data.playlist?.m3u_url) {
-        const m3uRes = await fetch(data.playlist.m3u_url);
-        const m3uText = await m3uRes.text();
-        list = parseM3U(m3uText);
+      if (!playlistData.success) {
+        setStatus('error');
+        setMessage(playlistData.message || playlistData.error || 'Failed to load playlist');
+        setChannels([]);
+        setSelected(null);
+        return;
       }
+
+      const list = playlistData.channels || [];
 
       const mapped = list
         .map((c, index) => ({
@@ -141,6 +122,7 @@ function App() {
         }))
         .filter(c => c.url);
 
+      setPlaylistName(playlistData.playlist?.name || deviceData.playlist?.name || '');
       setChannels(mapped);
 
       const lastChannelId = localStorage.getItem('last_channel');
@@ -213,7 +195,6 @@ function App() {
     video.src = selected.url;
     video.play().catch(() => {});
   }, [selected]);
-
   if (loading) {
     return (
       <div className="activation">
@@ -229,7 +210,9 @@ function App() {
         <h1>🔥 TX HOTPLAYER</h1>
         <AlertCircle size={70} />
         <h2>Your MAC is not associated with any playlist</h2>
+
         <p>Please add your M3U playlist from the user portal</p>
+
         <div className="mac">{mac}</div>
 
         <button onClick={load}>
@@ -237,7 +220,10 @@ function App() {
         </button>
 
         <small>{message}</small>
-        <p className="note">Media player only. No channels are included.</p>
+
+        <p className="note">
+          Media player only. No channels are included.
+        </p>
       </div>
     );
   }
@@ -259,6 +245,7 @@ function App() {
 
         <div className="search">
           <Search size={20} />
+
           <input
             placeholder="Search channels"
             value={q}
@@ -298,7 +285,9 @@ function App() {
               key={c.id}
               onClick={() => setSelected(c)}
             >
-              <img src={c.logo || 'https://placehold.co/100x100?text=TV'} />
+              <img
+                src={c.logo || 'https://placehold.co/100x100?text=TV'}
+              />
 
               <span>
                 {c.name}
@@ -322,7 +311,12 @@ function App() {
       <main>
         {selected ? (
           <>
-            <video ref={videoRef} controls autoPlay playsInline />
+            <video
+              ref={videoRef}
+              controls
+              autoPlay
+              playsInline
+            />
 
             <div className="now">
               <Play /> {selected.name}

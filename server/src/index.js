@@ -125,7 +125,7 @@ async function loadM3UChannels(playlist) {
 
   playlistLoading[playlist.id] = (async () => {
     const response = await axios.get(playlist.server_url, {
-      timeout: 30000,
+      timeout: 120000,
       responseType: "text",
       headers: {
         "User-Agent": "Mozilla/5.0",
