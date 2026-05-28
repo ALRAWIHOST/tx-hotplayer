@@ -203,7 +203,7 @@ export default function App() {
 
                 {playlists.map(playlist => (
                   <option key={playlist.id} value={playlist.id}>
-                    #{playlist.id} {playlist.name}
+                    #{playlist.id} - {playlist.name.slice(0, 12)}
                   </option>
                 ))}
               </select>
