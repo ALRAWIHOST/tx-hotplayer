@@ -593,4 +593,148 @@ app.post("/devices/delete-playlist", async (req, res) => {
     });
   }
 });
+app.post("/activation-requests", async (req, res) => {
+  try {
+    const { mac, plan, price } = req.body;
+
+    if (!mac || !plan) {
+      return res.status(400).json({
+        success: false,
+        message: "MAC and plan are required"
+      });
+    }
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS activation_requests (
+        id SERIAL PRIMARY KEY,
+        mac TEXT NOT NULL,
+        plan TEXT NOT NULL,
+        price TEXT,
+        status TEXT DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    const result = await pool.query(
+      `
+      INSERT INTO activation_requests (mac, plan, price, status)
+      VALUES ($1, $2, $3, 'pending')
+      RETURNING *
+      `,
+      [mac, plan, price || null]
+    );
+
+    res.json({
+      success: true,
+      request: result.rows[0]
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+app.get("/activation-requests", async (req, res) => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS activation_requests (
+        id SERIAL PRIMARY KEY,
+        mac TEXT NOT NULL,
+        plan TEXT NOT NULL,
+        price TEXT,
+        status TEXT DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    const result = await pool.query(`
+      SELECT *
+      FROM activation_requests
+      ORDER BY id DESC
+    `);
+
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json([]);
+  }
+});
+
+app.post("/activation-requests/:id/approve", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const requestResult = await pool.query(
+      `SELECT * FROM activation_requests WHERE id = $1 LIMIT 1`,
+      [id]
+    );
+
+    const request = requestResult.rows[0];
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: "Request not found"
+      });
+    }
+
+    const expireAt =
+      request.plan === "forever" ? "2099-12-31" : "2028-12-31";
+
+    await pool.query(
+      `
+      INSERT INTO devices (mac, active, blocked, expire_at)
+      VALUES ($1, true, false, $2)
+      ON CONFLICT (mac)
+      DO UPDATE SET
+        active = true,
+        blocked = false,
+        expire_at = EXCLUDED.expire_at
+      `,
+      [request.mac, expireAt]
+    );
+
+    await pool.query(
+      `
+      UPDATE activation_requests
+      SET status = 'approved'
+      WHERE id = $1
+      `,
+      [id]
+    );
+
+    res.json({
+      success: true,
+      mac: request.mac
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+app.post("/activation-requests/:id/reject", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await pool.query(
+      `
+      UPDATE activation_requests
+      SET status = 'rejected'
+      WHERE id = $1
+      `,
+      [id]
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
 startServer();
