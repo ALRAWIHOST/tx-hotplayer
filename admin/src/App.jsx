@@ -255,35 +255,55 @@ function App() {
         </div>
 
       </section>
-      <section id="pricing" className="pricing">
-        <h2>Pricing plans</h2>
+      <section id="pricing" className="activation-wrapper">
 
-        <div className="pricing-grid">
-          <div className="price-card popular">
-            <span>MOST POPULAR</span>
-
-            <h3>1 Year</h3>
-
-            <h1>$5.99</h1>
-
-            <button>Activate 1 Year</button>
-          </div>
-
-          <div className="price-card">
-            <h3>Forever</h3>
-
-            <h1>$14.99</h1>
-
-            <button>Activate Forever</button>
-          </div>
+        <div className="warning-banner">
+          <ShieldCheck size={18}/>
+          HotPlayer is a pure media player, NO CHANNELS are provided with activation, you have to add your OWN.
         </div>
+
+        <div className="activation-card">
+
+          <div className="activation-header">
+            Activate your MAC address
+          </div>
+
+          <div className="activation-body">
+
+            <label>Your MAC Address</label>
+
+            <input
+              placeholder="__:__:__:__:__"
+              value={mac}
+              onChange={e => setMac(e.target.value)}
+            />
+
+            <div className="agree-box">
+
+              <input type="checkbox" />
+
+              <span>
+                I agree that <b>HotPlayer</b> is a pure media player and
+                <b> no content are provided </b>
+                with the activation.
+              </span>
+
+            </div>
+
+            <button className="yellow-btn">
+              Next
+            </button>
+
+          </div>
+
+        </div>
+
       </section>
 
       <footer className="footer">
         <div>
           <h2>Become a Reseller</h2>
 
-          <p>
             Discover reseller packs with exceptional discounts.
           </p>
         </div>

@@ -385,3 +385,82 @@ button:disabled{opacity:.6}
 .yellow-btn:hover{
   background:#eab308;
 }
+.activation-wrapper{
+  max-width:1440px;
+  margin:40px auto;
+  padding:0 40px;
+}
+
+.warning-banner{
+  background:#fff7ed;
+  border:1px solid #fbbf24;
+  color:#b45309;
+  border-radius:12px;
+  padding:20px 24px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  font-size:18px;
+  font-weight:700;
+  margin-bottom:24px;
+}
+
+.activation-card{
+  background:white;
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  overflow:hidden;
+  box-shadow:0 4px 12px #00000008;
+}
+
+.activation-header{
+  padding:30px;
+  font-size:28px;
+  font-weight:700;
+  border-bottom:1px solid #e5e7eb;
+}
+
+.activation-body{
+  padding:34px;
+  display:flex;
+  flex-direction:column;
+  gap:20px;
+}
+
+.activation-body label{
+  font-size:18px;
+  font-weight:600;
+  color:#334155;
+}
+
+.activation-body input{
+  height:58px;
+  border:1px solid #d1d5db;
+  border-radius:10px;
+  padding:0 18px;
+  font-size:18px;
+}
+
+.agree-box{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  color:#334155;
+  font-size:18px;
+}
+
+.agree-box input{
+  width:24px;
+  height:24px;
+}
+
+.agree-box b{
+  color:#111827;
+}
+
+.activation-body .yellow-btn{
+  margin-left:auto;
+  width:120px;
+  height:54px;
+  font-size:22px;
+}
