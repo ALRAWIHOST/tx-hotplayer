@@ -2,18 +2,15 @@ import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   Flame,
+  Home,
   UploadCloud,
   ShieldCheck,
-  Home,
-  Tag,
-  Star,
-  Search,
-  Lock,
-  List,
-  Mail,
+  Tv,
   Monitor,
   Smartphone,
-  Tv
+  Mail,
+  Trash2,
+  CheckCircle
 } from 'lucide-react';
 
 import './style.css';
@@ -22,19 +19,25 @@ const API = 'https://tx-hotplayer-api.onrender.com';
 
 function App() {
   const [mac, setMac] = useState('');
-  const [m3uUrl, setM3uUrl] = useState('');
+  const [playlistUrl, setPlaylistUrl] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
-  async function submitPlaylist(e) {
-    e.preventDefault();
-
-    setLoading(true);
-    setMessage('');
+  async function uploadPlaylist() {
+    if (!mac || !playlistUrl) {
+      setMessage('Please fill all fields.');
+      return;
+    }
 
     try {
-      const check = await fetch(`${API}/device/${encodeURIComponent(mac)}`);
-      const device = await check.json();
+      setLoading(true);
+      setMessage('');
+
+      const deviceCheck = await fetch(
+        `${API}/device/${encodeURIComponent(mac)}`
+      );
+
+      const device = await deviceCheck.json();
 
       if (!device.active) {
         setMessage('Device not activated.');
@@ -44,35 +47,53 @@ function App() {
 
       const playlistRes = await fetch(`${API}/playlists`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: mac, type: 'm3u', server_url: m3uUrl })
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: mac,
+          type: 'm3u',
+          server_url: playlistUrl
+        })
       });
 
       const playlistData = await playlistRes.json();
 
       await fetch(`${API}/devices/assign-playlist`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mac, playlist_id: playlistData.playlist.id })
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          mac,
+          playlist_id: playlistData.playlist.id
+        })
       });
 
-      setMessage('Playlist linked successfully.');
-      setM3uUrl('');
+      setMessage('Playlist uploaded successfully.');
+      setPlaylistUrl('');
     } catch {
-      setMessage('Failed to save playlist.');
+      setMessage('Upload failed.');
     }
 
     setLoading(false);
   }
 
   async function deletePlaylist() {
-    setLoading(true);
-    setMessage('');
+    if (!mac) {
+      setMessage('Enter MAC Address.');
+      return;
+    }
 
     try {
+      setLoading(true);
+      setMessage('');
+
       const res = await fetch(`${API}/devices/delete-playlist`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({ mac })
       });
 
@@ -91,29 +112,44 @@ function App() {
   }
 
   return (
-    <div className="page">
+    <div className="portal">
+
       <header className="navbar">
-        <div className="brand">
+        <div className="logo">
           <Flame />
-          <span>TX</span> HOTPLAYER
+          TX HOTPLAYER
         </div>
 
         <nav>
-          <a href="#home"><Home size={16} /> Home</a>
-          <a href="#upload"><UploadCloud size={16} /> Upload List</a>
-          <a href="#pricing"><Tag size={16} /> Activation</a>
+          <a href="#home">
+            <Home size={15}/>
+            Home
+          </a>
+
+          <a href="#upload">
+            <UploadCloud size={15}/>
+            Upload
+          </a>
+
+          <a href="#activation">
+            <ShieldCheck size={15}/>
+            Activation
+          </a>
         </nav>
 
-        <div className="nav-actions">
-          <span>Reseller</span>
-          <span><Mail size={14} /> Contact-Us</span>
-          <b>FR</b>
+        <div className="contact">
+          <Mail size={14}/>
+          Contact
         </div>
       </header>
 
-      <section id="home" className="hero">
-        <div className="hero-text">
-          <span className="badge">MEDIA PLAYER, NO CHANNELS INCLUDED</span>
+      <section className="hero" id="home">
+
+        <div className="hero-left">
+
+          <span className="badge">
+            MEDIA PLAYER ONLY
+          </span>
 
           <h1>
             Your best Media Player
@@ -121,177 +157,110 @@ function App() {
           </h1>
 
           <p>
-            Experience the ultimate entertainment with TX HOTPLAYER,
-            your media player for enjoying playlists and watching your favorite content.
+            Upload your own M3U playlist and enjoy IPTV streaming
+            on Smart TVs, Android TVs and more.
           </p>
 
-          <p>
-            Download and activate the app, then upload your own legal M3U
-            playlist using your MAC address.
-          </p>
-
-          <div className="notice">
-            No channels are included in the application.
-            TX HOTPLAYER is not responsible for content uploaded by users.
-          </div>
         </div>
 
         <div className="platforms">
-          <h3>AVAILABLE IN</h3>
 
-          <div className="platform-grid">
-            <div><Tv /> Smart TV</div>
-            <div><Monitor /> Web OS</div>
-            <div><Smartphone /> Android</div>
-            <div>Fire TV Stick</div>
-            <div>VIDAA</div>
-            <div>Roku</div>
-            <div>Microsoft</div>
-            <div>App Store</div>
-          </div>
+          <div><Tv/> Smart TV</div>
+          <div><Monitor/> WebOS</div>
+          <div><Smartphone/> Android</div>
+          <div>VIDAA</div>
+          <div>Roku</div>
+          <div>Fire TV</div>
+
         </div>
+
       </section>
 
-      <section className="disclaimer">
-        <h2>DISCLAIMER</h2>
+      <section className="cards">
 
-        <div className="disclaimer-grid">
-          <div>
-            <p>We do not provide IPTV subscriptions or copyrighted content.</p>
-            <p>TX HOTPLAYER is only a media player application.</p>
-            <p>Users are required to upload their own playlists.</p>
+        <div className="card" id="upload">
+
+          <div className="card-title">
+            <UploadCloud size={18}/>
+            Upload Playlist
           </div>
 
-          <div>
-            <p>• No channels included</p>
-            <p>• No third-party affiliation</p>
-            <p>• Legal M3U playlists only</p>
-            <p>• Media player application only</p>
-          </div>
+          <input
+            placeholder="MAC Address"
+            value={mac}
+            onChange={e => setMac(e.target.value)}
+          />
+
+          <input
+            placeholder="https://example.com/playlist.m3u"
+            value={playlistUrl}
+            onChange={e => setPlaylistUrl(e.target.value)}
+          />
+
+          <button onClick={uploadPlaylist} disabled={loading}>
+            {loading ? 'Loading...' : 'Upload Playlist'}
+          </button>
+
         </div>
+
+        <div className="card">
+
+          <div className="card-title">
+            <Trash2 size={18}/>
+            Delete Playlist
+          </div>
+
+          <input
+            placeholder="MAC Address"
+            value={mac}
+            onChange={e => setMac(e.target.value)}
+          />
+
+          <button
+            className="delete-btn"
+            onClick={deletePlaylist}
+            disabled={loading}
+          >
+            {loading ? 'Deleting...' : 'Delete Playlist'}
+          </button>
+
+        </div>
+
+        <div className="card" id="activation">
+
+          <div className="card-title">
+            <ShieldCheck size={18}/>
+            Activation
+          </div>
+
+          <div className="activation-note">
+            TX HOTPLAYER does not provide channels or IPTV subscriptions.
+          </div>
+
+          <label className="agree">
+            <input type="checkbox"/>
+            I understand this app is a media player only.
+          </label>
+
+          <button>
+            Activate Device
+          </button>
+
+        </div>
+
       </section>
 
-      <section className="features">
-        <h2>Features</h2>
-
-        <div className="feature-grid">
-          <div><Star /> Favorite list</div>
-          <div><Search /> Search channels</div>
-          <div><List /> Multi playlist</div>
-          <div><Lock /> Lock MAC</div>
-          <div><ShieldCheck /> Device activation</div>
-          <div><Tv /> Smart TV support</div>
+      {message && (
+        <div className="message-box">
+          <CheckCircle size={18}/>
+          {message}
         </div>
-      </section>
-
-      <section id="upload" className="upload-wrapper">
-        <div className="info-banner">
-          <ShieldCheck size={18} />
-          TX HOTPLAYER supports M3U playlist content. No channels are included.
-        </div>
-
-        <div className="upload-card">
-          <div className="upload-header">Upload your playlist</div>
-
-          <div className="upload-body">
-            <label>Your MAC Address</label>
-
-            <input
-              placeholder="__:__:__:__:__"
-              value={mac}
-              onChange={e => setMac(e.target.value)}
-            />
-
-            <label>M3U Playlist URL</label>
-
-            <input
-              placeholder="https://example.com/playlist.m3u"
-              value={m3uUrl}
-              onChange={e => setM3uUrl(e.target.value)}
-            />
-
-            <button
-              className="yellow-btn"
-              onClick={submitPlaylist}
-              disabled={loading}
-            >
-              {loading ? 'Loading...' : 'Next'}
-            </button>
-          </div>
-        </div>
-
-        <div className="upload-card">
-          <div className="upload-header">Delete your playlist</div>
-
-          <div className="upload-body">
-            <label>Your MAC Address</label>
-
-            <input
-              placeholder="__:__:__:__:__"
-              value={mac}
-              onChange={e => setMac(e.target.value)}
-            />
-
-            <button
-              className="yellow-btn"
-              onClick={deletePlaylist}
-              disabled={loading}
-            >
-              {loading ? 'Deleting...' : 'Delete'}
-            </button>
-          </div>
-        </div>
-
-        {message && (
-          <div className="message">
-            {message}
-          </div>
-        )}
-      </section>
-
-      <section id="pricing" className="activation-wrapper">
-        <div className="warning-banner">
-          <ShieldCheck size={18} />
-          TX HOTPLAYER is a pure media player. NO CHANNELS are provided with activation.
-        </div>
-
-        <div className="activation-card">
-          <div className="activation-header">Activate your MAC address</div>
-
-          <div className="activation-body">
-            <label>Your MAC Address</label>
-
-            <input
-              placeholder="__:__:__:__:__"
-              value={mac}
-              onChange={e => setMac(e.target.value)}
-            />
-
-            <div className="agree-box">
-              <input type="checkbox" />
-
-              <span>
-                I agree that <b>TX HOTPLAYER</b> is a pure media player and
-                <b> no content is provided </b>
-                with the activation.
-              </span>
-            </div>
-
-            <button className="yellow-btn">
-              Next
-            </button>
-          </div>
-        </div>
-      </section>
+      )}
 
       <footer className="footer">
-        <div>
-          <h2>Become a Reseller</h2>
-          <p>Discover reseller packs with exceptional discounts.</p>
-        </div>
-
-        <button>Discover our packs</button>
+        © 2026 TX HOTPLAYER — All rights reserved.
       </footer>
+
     </div>
   );
 }
