@@ -737,4 +737,155 @@ app.post("/activation-requests/:id/reject", async (req, res) => {
     });
   }
 });
+/paypal/create-order
+/paypal/capture-order
+function getPayPalBaseUrl() {
+  return process.env.PAYPAL_MODE === "live"
+    ? "https://api-m.paypal.com"
+    : "https://api-m.sandbox.paypal.com";
+}
+
+async function getPayPalAccessToken() {
+  const auth = Buffer.from(
+    `${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`
+  ).toString("base64");
+
+  const response = await axios.post(
+    `${getPayPalBaseUrl()}/v1/oauth2/token`,
+    "grant_type=client_credentials",
+    {
+      headers: {
+        Authorization: `Basic ${auth}`,
+        "Content-Type": "application/x-www-form-urlencoded"
+      }
+    }
+  );
+
+  return response.data.access_token;
+}
+
+app.post("/paypal/create-order", async (req, res) => {
+  try {
+    const { mac, plan } = req.body;
+
+    if (!mac || !plan) {
+      return res.status(400).json({
+        success: false,
+        message: "MAC and plan are required"
+      });
+    }
+
+    const amount = plan === "forever" ? "14.99" : "5.99";
+
+    const token = await getPayPalAccessToken();
+
+    const response = await axios.post(
+      `${getPayPalBaseUrl()}/v2/checkout/orders`,
+      {
+        intent: "CAPTURE",
+        purchase_units: [
+          {
+            amount: {
+              currency_code: "USD",
+              value: amount
+            },
+            custom_id: mac,
+            description: `TX HOTPLAYER ${plan} activation`
+          }
+        ]
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    res.json({
+      success: true,
+      orderID: response.data.id
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.response?.data || error.message
+    });
+  }
+});
+
+app.post("/paypal/capture-order", async (req, res) => {
+  try {
+    const { orderID, mac, plan } = req.body;
+
+    if (!orderID || !mac || !plan) {
+      return res.status(400).json({
+        success: false,
+        message: "orderID, MAC and plan are required"
+      });
+    }
+
+    const token = await getPayPalAccessToken();
+
+    const response = await axios.post(
+      `${getPayPalBaseUrl()}/v2/checkout/orders/${orderID}/capture`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    const status = response.data.status;
+
+    if (status !== "COMPLETED") {
+      return res.status(400).json({
+        success: false,
+        message: "Payment not completed",
+        status
+      });
+    }
+
+    const expireAt = plan === "forever" ? "2099-12-31" : "2028-12-31";
+
+    await pool.query(
+      `
+      INSERT INTO devices (mac, active, blocked, expire_at)
+      VALUES ($1, true, false, $2)
+      ON CONFLICT (mac)
+      DO UPDATE SET
+        active = true,
+        blocked = false,
+        expire_at = EXCLUDED.expire_at
+      `,
+      [mac, expireAt]
+    );
+
+    await pool.query(
+      `
+      INSERT INTO activation_requests (mac, plan, price, status)
+      VALUES ($1, $2, $3, 'approved')
+      `,
+      [
+        mac,
+        plan,
+        plan === "forever" ? "$14.99" : "$5.99"
+      ]
+    );
+
+    res.json({
+      success: true,
+      message: "Payment completed and MAC activated",
+      mac,
+      expire_at: expireAt
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.response?.data || error.message
+    });
+  }
+});
 startServer();
