@@ -737,8 +737,6 @@ app.post("/activation-requests/:id/reject", async (req, res) => {
     });
   }
 });
-/paypal/create-order
-/paypal/capture-order
 function getPayPalBaseUrl() {
   return process.env.PAYPAL_MODE === "live"
     ? "https://api-m.paypal.com"
