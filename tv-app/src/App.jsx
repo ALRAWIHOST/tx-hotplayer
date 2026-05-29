@@ -152,7 +152,27 @@ function App() {
 
   useEffect(() => {
     load();
-  }, []);
+
+    async function sendHeartbeat() {
+      try {
+        await fetch(`${API}/devices/heartbeat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ mac })
+        });
+      } catch (e) {
+        console.error('Heartbeat failed', e);
+      }
+    }
+
+    sendHeartbeat();
+
+    const interval = setInterval(sendHeartbeat, 60000);
+
+    return () => clearInterval(interval);
+  }, [mac]);
 
   useEffect(() => {
     if (selected) {

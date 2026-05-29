@@ -7,6 +7,29 @@ import {
 import './App.css';
 
 const API = 'https://tx-hotplayer-api.onrender.com';
+const ONLINE_MINUTES = 5;
+
+function isOnline(lastSeen) {
+  if (!lastSeen) return false;
+
+  const lastSeenTime = new Date(lastSeen).getTime();
+
+  if (Number.isNaN(lastSeenTime)) return false;
+
+  const diffMinutes = (Date.now() - lastSeenTime) / 60000;
+
+  return diffMinutes < ONLINE_MINUTES;
+}
+
+function formatLastSeen(lastSeen) {
+  if (!lastSeen) return '-';
+
+  const lastSeenTime = new Date(lastSeen);
+
+  if (Number.isNaN(lastSeenTime.getTime())) return '-';
+
+  return lastSeenTime.toLocaleString();
+}
 
 export default function App() {
   const [devices, setDevices] = useState([]);
@@ -138,6 +161,8 @@ export default function App() {
       withPlaylist: devices.filter(d => d.playlist_id).length,
       pendingRequests: requests.filter(r => r.status === 'pending').length,
       paidActivations: approved.length,
+      online: devices.filter(d => isOnline(d.last_seen)).length,
+      offline: devices.filter(d => !isOnline(d.last_seen)).length,
       revenue: revenue.toFixed(2)
     };
   }, [devices, requests]);
@@ -179,6 +204,12 @@ export default function App() {
           <CheckCircle />
           <span>Active</span>
           <b>{stats.active}</b>
+        </div>
+
+        <div className="stat-card success">
+          <Clock3 />
+          <span>Online</span>
+          <b>{stats.online}</b>
         </div>
 
         <div className="stat-card danger-card">
@@ -255,6 +286,10 @@ export default function App() {
           <p className="muted">
             Paid activations: {stats.paidActivations}
           </p>
+
+          <p className="muted">
+            Online devices: {stats.online}
+          </p>
         </div>
       </section>
 
@@ -265,20 +300,30 @@ export default function App() {
         </h2>
 
         <div className="table">
-          <div className="table-head">
+          <div className="table-head devices-table-head">
             <span>MAC</span>
             <span>Status</span>
+            <span>Online</span>
+            <span>Last Seen</span>
             <span>Playlist</span>
             <span>Expires</span>
             <span>Actions</span>
           </div>
 
           {filteredDevices.map(device => (
-            <div className="table-row" key={device.id}>
+            <div className="table-row devices-table-row" key={device.id}>
               <b>{device.mac}</b>
 
               <span className={device.blocked ? 'bad' : device.active ? 'good' : 'pending'}>
                 {device.blocked ? 'Blocked' : device.active ? 'Active' : 'Inactive'}
+              </span>
+
+              <span className={isOnline(device.last_seen) ? 'good' : 'bad'}>
+                {isOnline(device.last_seen) ? '🟢 Online' : '🔴 Offline'}
+              </span>
+
+              <span title={device.last_seen || ''}>
+                {formatLastSeen(device.last_seen)}
               </span>
 
               <select
