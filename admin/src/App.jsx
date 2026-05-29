@@ -28,7 +28,7 @@ function App() {
   const [loading, setLoading] = useState(false);
 
   async function uploadPlaylist() {
-    if (!mac || !playlistUrl) {
+    if (!mac.trim() || !playlistUrl.trim()) {
       setMessage('Please fill all fields.');
       return;
     }
@@ -37,19 +37,18 @@ function App() {
       setLoading(true);
       setMessage('');
 
-      const deviceCheck = await fetch(`${API}/device/${encodeURIComponent(mac)}`);
+      const deviceCheck = await fetch(`${API}/device/${encodeURIComponent(mac.trim())}`);
       const device = await deviceCheck.json();
 
       if (!device.active) {
         setMessage('Device not activated. Please pay activation first.');
-        setLoading(false);
         return;
       }
 
       const playlistRes = await fetch(`${API}/playlists`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: mac, type: 'm3u', server_url: playlistUrl })
+        body: JSON.stringify({ name: mac.trim(), type: 'm3u', server_url: playlistUrl.trim() })
       });
 
       const playlistData = await playlistRes.json();
@@ -57,20 +56,20 @@ function App() {
       await fetch(`${API}/devices/assign-playlist`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mac, playlist_id: playlistData.playlist.id })
+        body: JSON.stringify({ mac: mac.trim(), playlist_id: playlistData.playlist.id })
       });
 
       setMessage('Playlist uploaded successfully.');
       setPlaylistUrl('');
     } catch {
       setMessage('Upload failed.');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
   async function deletePlaylist() {
-    if (!mac) {
+    if (!mac.trim()) {
       setMessage('Enter MAC Address.');
       return;
     }
@@ -82,17 +81,19 @@ function App() {
       const res = await fetch(`${API}/devices/delete-playlist`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mac })
+        body: JSON.stringify({ mac: mac.trim() })
       });
 
       const data = await res.json();
       setMessage(data.success ? 'Playlist deleted successfully.' : data.message || 'Delete failed.');
     } catch {
       setMessage('Delete failed.');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
+
+  const canPay = agreed === true && mac.trim() !== '';
 
   return (
     <PayPalScriptProvider options={{ clientId: PAYPAL_CLIENT_ID, currency: 'USD' }}>
@@ -198,28 +199,32 @@ function App() {
               <option value="forever">Forever Activation - $14.99</option>
             </select>
 
-            <label className="agree">
+            <div className="agree">
               <input
                 type="checkbox"
                 checked={agreed}
                 onChange={e => setAgreed(e.target.checked)}
               />
-              I understand this app is a media player only and no channels are provided.
-            </label>
 
-            {agreed && mac ? (
+              <span>
+                I understand this app is a media player only and no channels are provided.
+              </span>
+            </div>
+
+            {canPay ? (
               <PayPalButtons
                 style={{ layout: 'vertical', shape: 'rect' }}
                 createOrder={async () => {
                   const res = await fetch(`${API}/paypal/create-order`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ mac, plan })
+                    body: JSON.stringify({ mac: mac.trim(), plan })
                   });
 
                   const data = await res.json();
 
                   if (!data.success) {
+                    setMessage('Could not create PayPal order.');
                     throw new Error('PayPal order failed');
                   }
 
@@ -231,7 +236,7 @@ function App() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                       orderID: data.orderID,
-                      mac,
+                      mac: mac.trim(),
                       plan
                     })
                   });
@@ -241,7 +246,7 @@ function App() {
                   if (result.success) {
                     setMessage('Payment successful. MAC activated automatically.');
                   } else {
-                    setMessage('Payment captured but activation failed.');
+                    setMessage('Payment completed but activation failed.');
                   }
                 }}
                 onError={() => {
