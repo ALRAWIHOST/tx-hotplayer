@@ -166,3 +166,18 @@ select{
 .delete-btn{
   background:linear-gradient(135deg,#64748b,#334155);
 }
+.wide-card{
+  overflow-x:auto;
+}
+
+.payments-table .table-head,
+.payments-table .table-row{
+  grid-template-columns:1.2fr 1fr 1.4fr .7fr .7fr 1fr .9fr auto;
+  min-width:1050px;
+}
+
+.recent-payments-table .table-head,
+.recent-payments-table .table-row{
+  grid-template-columns:1.2fr 1fr 1.4fr .7fr 1fr 1fr .8fr;
+  min-width:1050px;
+}

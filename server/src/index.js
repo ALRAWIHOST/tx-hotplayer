@@ -53,7 +53,14 @@ async function initDatabase() {
       created_at TIMESTAMP DEFAULT NOW()
     );
   `);
-
+await pool.query(`
+  ALTER TABLE devices
+  ADD COLUMN IF NOT EXISTS last_seen TIMESTAMP;
+`);
+await pool.query(`
+  ALTER TABLE devices
+  ADD COLUMN IF NOT EXISTS last_seen TIMESTAMP;
+`);
   console.log("Database tables ready");
 }
 
@@ -191,7 +198,15 @@ app.get("/health", async (req, res) => {
 
 app.get("/devices", async (req, res) => {
   const result = await pool.query(`
-    SELECT id, mac, active, blocked, expire_at, playlist_id, created_at
+    SELECT
+      id,
+      mac,
+      active,
+      blocked,
+      expire_at,
+      playlist_id,
+      created_at,
+      last_seen
     FROM devices
     ORDER BY id DESC
   `);
@@ -448,7 +463,66 @@ app.get("/m3u/:mac", async (req, res) => {
     });
   }
 });
+app.post("/devices/heartbeat", async (req, res) => {
+  try {
+    const { mac } = req.body;
 
+    if (!mac) {
+      return res.status(400).json({
+        success: false,
+        message: "MAC is required"
+      });
+    }
+
+    await pool.query(
+      `
+      UPDATE devices
+      SET last_seen = NOW()
+      WHERE mac = $1
+      `,
+      [mac]
+    );
+
+    res.json({
+      success: true
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+app.post("/devices/heartbeat", async (req, res) => {
+  try {
+    const { mac } = req.body;
+
+    if (!mac) {
+      return res.status(400).json({
+        success: false,
+        message: "MAC is required"
+      });
+    }
+
+    await pool.query(
+      `
+      UPDATE devices
+      SET last_seen = NOW()
+      WHERE mac = $1
+      `,
+      [mac]
+    );
+
+    res.json({
+      success: true
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
 const PORT = process.env.PORT || 4000;
 
 async function startServer() {
@@ -938,5 +1012,4 @@ app.post("/paypal/capture-order", async (req, res) => {
   }
 });
 
-startServer();
 startServer();

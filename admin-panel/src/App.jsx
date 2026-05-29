@@ -336,17 +336,20 @@ export default function App() {
         )}
       </section>
 
-      <section className="card">
+      <section className="card wide-card">
         <h2>
           <DollarSign size={18}/>
           Payments & Activations ({requests.length})
         </h2>
 
-        <div className="table">
+        <div className="table payments-table">
           <div className="table-head">
             <span>MAC</span>
+            <span>Customer</span>
+            <span>Email</span>
             <span>Plan</span>
             <span>Price</span>
+            <span>Transaction</span>
             <span>Status</span>
             <span>Actions</span>
           </div>
@@ -356,11 +359,25 @@ export default function App() {
               <b>{request.mac}</b>
 
               <span>
+                {request.payer_name || '-'}
+              </span>
+
+              <span title={request.payer_email || ''}>
+                {request.payer_email || '-'}
+              </span>
+
+              <span>
                 {request.plan}
               </span>
 
               <span>
                 {request.price}
+              </span>
+
+              <span title={request.transaction_id || ''}>
+                {request.transaction_id
+                  ? request.transaction_id.slice(0, 12)
+                  : '-'}
               </span>
 
               <span
@@ -411,18 +428,20 @@ export default function App() {
         )}
       </section>
 
-      <section className="card">
+      <section className="card wide-card">
         <h2>
           <Clock3 size={18}/>
           Recent Payments
         </h2>
 
-        <div className="table">
+        <div className="table payments-table recent-payments-table">
           <div className="table-head">
             <span>MAC</span>
-            <span>Plan</span>
+            <span>Customer</span>
+            <span>Email</span>
             <span>Amount</span>
-            <span>Status</span>
+            <span>Transaction</span>
+            <span>PayPal Order</span>
             <span>Date</span>
           </div>
 
@@ -430,12 +449,28 @@ export default function App() {
             <div className="table-row" key={payment.id}>
               <b>{payment.mac}</b>
 
-              <span>{payment.plan}</span>
+              <span>
+                {payment.payer_name || '-'}
+              </span>
 
-              <span>{payment.price}</span>
+              <span title={payment.payer_email || ''}>
+                {payment.payer_email || '-'}
+              </span>
 
-              <span className="good">
-                Payment Verified
+              <span>
+                {payment.price || '-'}
+              </span>
+
+              <span title={payment.transaction_id || ''}>
+                {payment.transaction_id
+                  ? payment.transaction_id.slice(0, 12)
+                  : '-'}
+              </span>
+
+              <span title={payment.paypal_order_id || ''}>
+                {payment.paypal_order_id
+                  ? payment.paypal_order_id.slice(0, 12)
+                  : '-'}
               </span>
 
               <span>
