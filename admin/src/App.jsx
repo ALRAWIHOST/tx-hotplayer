@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 import {
   Flame,
   Home,
@@ -16,6 +17,7 @@ import {
 import './style.css';
 
 const API = 'https://tx-hotplayer-api.onrender.com';
+const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID;
 
 function App() {
   const [mac, setMac] = useState('');
@@ -39,7 +41,7 @@ function App() {
       const device = await deviceCheck.json();
 
       if (!device.active) {
-        setMessage('Device not activated. Please request activation first.');
+        setMessage('Device not activated. Please pay activation first.');
         setLoading(false);
         return;
       }
@@ -84,12 +86,7 @@ function App() {
       });
 
       const data = await res.json();
-
-      if (data.success) {
-        setMessage('Playlist deleted successfully.');
-      } else {
-        setMessage(data.message || 'Delete failed.');
-      }
+      setMessage(data.success ? 'Playlist deleted successfully.' : data.message || 'Delete failed.');
     } catch {
       setMessage('Delete failed.');
     }
@@ -97,175 +94,180 @@ function App() {
     setLoading(false);
   }
 
-  async function requestActivation() {
-    if (!mac) {
-      setMessage('Enter MAC Address.');
-      return;
-    }
-
-    if (!agreed) {
-      setMessage('Please confirm that TX HOTPLAYER is only a media player.');
-      return;
-    }
-
-    const price = plan === 'forever' ? '$14.99' : '$5.99';
-
-    try {
-      setLoading(true);
-      setMessage('');
-
-      const res = await fetch(`${API}/activation-requests`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mac, plan, price })
-      });
-
-      const data = await res.json();
-
-      if (data.success) {
-        setMessage('Activation request sent. Admin will approve it after payment confirmation.');
-      } else {
-        setMessage(data.message || 'Activation request failed.');
-      }
-    } catch {
-      setMessage('Activation request failed.');
-    }
-
-    setLoading(false);
-  }
-
   return (
-    <div className="portal">
-      <header className="navbar">
-        <div className="logo">
-          <Flame />
-          TX HOTPLAYER
-        </div>
-
-        <nav>
-          <a href="#home"><Home size={15}/> Home</a>
-          <a href="#upload"><UploadCloud size={15}/> Upload</a>
-          <a href="#activation"><ShieldCheck size={15}/> Activation</a>
-        </nav>
-
-        <div className="contact">
-          <Mail size={14}/>
-          Contact
-        </div>
-      </header>
-
-      <section className="hero" id="home">
-        <div className="hero-left">
-          <span className="badge">MEDIA PLAYER ONLY</span>
-
-          <h1>
-            Your best Media Player
-            <strong>TX HOTPLAYER</strong>
-          </h1>
-
-          <p>
-            Upload your own M3U playlist and enjoy IPTV streaming
-            on Smart TVs, Android TVs and more.
-          </p>
-        </div>
-
-        <div className="platforms">
-          <div><Tv/> Smart TV</div>
-          <div><Monitor/> WebOS</div>
-          <div><Smartphone/> Android</div>
-          <div>VIDAA</div>
-          <div>Roku</div>
-          <div>Fire TV</div>
-        </div>
-      </section>
-
-      <section className="cards">
-        <div className="card" id="upload">
-          <div className="card-title">
-            <UploadCloud size={18}/>
-            Upload Playlist
+    <PayPalScriptProvider options={{ clientId: PAYPAL_CLIENT_ID, currency: 'USD' }}>
+      <div className="portal">
+        <header className="navbar">
+          <div className="logo">
+            <Flame />
+            TX HOTPLAYER
           </div>
 
-          <input
-            placeholder="MAC Address"
-            value={mac}
-            onChange={e => setMac(e.target.value)}
-          />
+          <nav>
+            <a href="#home"><Home size={15}/> Home</a>
+            <a href="#upload"><UploadCloud size={15}/> Upload</a>
+            <a href="#activation"><ShieldCheck size={15}/> Activation</a>
+          </nav>
 
-          <input
-            placeholder="https://example.com/playlist.m3u"
-            value={playlistUrl}
-            onChange={e => setPlaylistUrl(e.target.value)}
-          />
+          <div className="contact">
+            <Mail size={14}/>
+            Contact
+          </div>
+        </header>
 
-          <button onClick={uploadPlaylist} disabled={loading}>
-            {loading ? 'Loading...' : 'Upload Playlist'}
-          </button>
-        </div>
+        <section className="hero" id="home">
+          <div className="hero-left">
+            <span className="badge">MEDIA PLAYER ONLY</span>
 
-        <div className="card">
-          <div className="card-title">
-            <Trash2 size={18}/>
-            Delete Playlist
+            <h1>
+              Your best Media Player
+              <strong>TX HOTPLAYER</strong>
+            </h1>
+
+            <p>
+              Upload your own M3U playlist and enjoy IPTV streaming on Smart TVs,
+              Android TVs and more.
+            </p>
           </div>
 
-          <input
-            placeholder="MAC Address"
-            value={mac}
-            onChange={e => setMac(e.target.value)}
-          />
-
-          <button className="delete-btn" onClick={deletePlaylist} disabled={loading}>
-            {loading ? 'Deleting...' : 'Delete Playlist'}
-          </button>
-        </div>
-
-        <div className="card" id="activation">
-          <div className="card-title">
-            <ShieldCheck size={18}/>
-            Activation Request
+          <div className="platforms">
+            <div><Tv/> Smart TV</div>
+            <div><Monitor/> WebOS</div>
+            <div><Smartphone/> Android</div>
+            <div>VIDAA</div>
+            <div>Roku</div>
+            <div>Fire TV</div>
           </div>
+        </section>
 
-          <input
-            placeholder="MAC Address"
-            value={mac}
-            onChange={e => setMac(e.target.value)}
-          />
+        <section className="cards">
+          <div className="card" id="upload">
+            <div className="card-title">
+              <UploadCloud size={18}/>
+              Upload Playlist
+            </div>
 
-          <select
-            value={plan}
-            onChange={e => setPlan(e.target.value)}
-          >
-            <option value="1-year">1 Year Activation - $5.99</option>
-            <option value="forever">Forever Activation - $14.99</option>
-          </select>
-
-          <label className="agree">
             <input
-              type="checkbox"
-              checked={agreed}
-              onChange={e => setAgreed(e.target.checked)}
+              placeholder="MAC Address"
+              value={mac}
+              onChange={e => setMac(e.target.value)}
             />
-            I understand this app is a media player only and no channels are provided.
-          </label>
 
-          <button onClick={requestActivation} disabled={loading}>
-            {loading ? 'Sending...' : 'Submit Activation Request'}
-          </button>
-        </div>
-      </section>
+            <input
+              placeholder="https://example.com/playlist.m3u"
+              value={playlistUrl}
+              onChange={e => setPlaylistUrl(e.target.value)}
+            />
 
-      {message && (
-        <div className="message-box">
-          <CheckCircle size={18}/>
-          {message}
-        </div>
-      )}
+            <button onClick={uploadPlaylist} disabled={loading}>
+              {loading ? 'Loading...' : 'Upload Playlist'}
+            </button>
+          </div>
 
-      <footer className="footer">
-        © 2026 TX HOTPLAYER — All rights reserved.
-      </footer>
-    </div>
+          <div className="card">
+            <div className="card-title">
+              <Trash2 size={18}/>
+              Delete Playlist
+            </div>
+
+            <input
+              placeholder="MAC Address"
+              value={mac}
+              onChange={e => setMac(e.target.value)}
+            />
+
+            <button className="delete-btn" onClick={deletePlaylist} disabled={loading}>
+              {loading ? 'Deleting...' : 'Delete Playlist'}
+            </button>
+          </div>
+
+          <div className="card" id="activation">
+            <div className="card-title">
+              <ShieldCheck size={18}/>
+              Pay & Activate MAC
+            </div>
+
+            <input
+              placeholder="MAC Address"
+              value={mac}
+              onChange={e => setMac(e.target.value)}
+            />
+
+            <select value={plan} onChange={e => setPlan(e.target.value)}>
+              <option value="1-year">1 Year Activation - $5.99</option>
+              <option value="forever">Forever Activation - $14.99</option>
+            </select>
+
+            <label className="agree">
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={e => setAgreed(e.target.checked)}
+              />
+              I understand this app is a media player only and no channels are provided.
+            </label>
+
+            {agreed && mac ? (
+              <PayPalButtons
+                style={{ layout: 'vertical', shape: 'rect' }}
+                createOrder={async () => {
+                  const res = await fetch(`${API}/paypal/create-order`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mac, plan })
+                  });
+
+                  const data = await res.json();
+
+                  if (!data.success) {
+                    throw new Error('PayPal order failed');
+                  }
+
+                  return data.orderID;
+                }}
+                onApprove={async data => {
+                  const res = await fetch(`${API}/paypal/capture-order`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      orderID: data.orderID,
+                      mac,
+                      plan
+                    })
+                  });
+
+                  const result = await res.json();
+
+                  if (result.success) {
+                    setMessage('Payment successful. MAC activated automatically.');
+                  } else {
+                    setMessage('Payment captured but activation failed.');
+                  }
+                }}
+                onError={() => {
+                  setMessage('PayPal payment failed.');
+                }}
+              />
+            ) : (
+              <button disabled>
+                Enter MAC and accept terms first
+              </button>
+            )}
+          </div>
+        </section>
+
+        {message && (
+          <div className="message-box">
+            <CheckCircle size={18}/>
+            {message}
+          </div>
+        )}
+
+        <footer className="footer">
+          © 2026 TX HOTPLAYER — All rights reserved.
+        </footer>
+      </div>
+    </PayPalScriptProvider>
   );
 }
 
