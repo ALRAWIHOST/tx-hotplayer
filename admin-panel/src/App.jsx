@@ -1,19 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Server,
-  Tv,
-  Shield,
-  RefreshCcw,
-  Ban,
-  Search,
-  CheckCircle,
-  XCircle,
-  Database,
-  Trash2,
-  Unlock,
-  Clock3,
-  Check,
-  X
+  Server, Tv, Shield, RefreshCcw, Ban, Search, CheckCircle,
+  XCircle, Database, Trash2, Unlock, Clock3, Check, X, DollarSign
 } from 'lucide-react';
 
 import './App.css';
@@ -24,7 +12,6 @@ export default function App() {
   const [devices, setDevices] = useState([]);
   const [playlists, setPlaylists] = useState([]);
   const [requests, setRequests] = useState([]);
-
   const [mac, setMac] = useState('');
   const [expireAt, setExpireAt] = useState('2026-12-31');
   const [query, setQuery] = useState('');
@@ -33,10 +20,8 @@ export default function App() {
   async function loadDevices() {
     try {
       setLoading(true);
-
       const res = await fetch(`${API}/devices`);
       const data = await res.json();
-
       setDevices(Array.isArray(data) ? data : []);
     } finally {
       setLoading(false);
@@ -46,23 +31,17 @@ export default function App() {
   async function loadPlaylists() {
     const res = await fetch(`${API}/playlists`);
     const data = await res.json();
-
     setPlaylists(Array.isArray(data) ? data : []);
   }
 
   async function loadRequests() {
     const res = await fetch(`${API}/activation-requests`);
     const data = await res.json();
-
     setRequests(Array.isArray(data) ? data : []);
   }
 
   async function refreshAll() {
-    await Promise.all([
-      loadDevices(),
-      loadPlaylists(),
-      loadRequests()
-    ]);
+    await Promise.all([loadDevices(), loadPlaylists(), loadRequests()]);
   }
 
   async function activateDevice(e) {
@@ -75,7 +54,7 @@ export default function App() {
     });
 
     setMac('');
-    await loadDevices();
+    await refreshAll();
   }
 
   async function blockDevice(deviceMac) {
@@ -85,7 +64,7 @@ export default function App() {
       body: JSON.stringify({ mac: deviceMac })
     });
 
-    await loadDevices();
+    await refreshAll();
   }
 
   async function unblockDevice(deviceMac) {
@@ -95,7 +74,7 @@ export default function App() {
       body: JSON.stringify({ mac: deviceMac })
     });
 
-    await loadDevices();
+    await refreshAll();
   }
 
   async function deleteDevice(deviceMac) {
@@ -106,7 +85,7 @@ export default function App() {
       method: 'DELETE'
     });
 
-    await loadDevices();
+    await refreshAll();
   }
 
   async function assignPlaylist(deviceMac, playlistId) {
@@ -121,7 +100,7 @@ export default function App() {
       })
     });
 
-    await loadDevices();
+    await refreshAll();
   }
 
   async function approveRequest(id) {
@@ -144,17 +123,32 @@ export default function App() {
     refreshAll();
   }, []);
 
-  const stats = useMemo(() => ({
-    total: devices.length,
-    active: devices.filter(d => d.active && !d.blocked).length,
-    blocked: devices.filter(d => d.blocked).length,
-    withPlaylist: devices.filter(d => d.playlist_id).length,
-    pendingRequests: requests.filter(r => r.status === 'pending').length
-  }), [devices, requests]);
+  const stats = useMemo(() => {
+    const approved = requests.filter(r => r.status === 'approved');
+
+    const revenue = approved.reduce((sum, r) => {
+      const value = Number(String(r.price || '0').replace('$', ''));
+      return sum + (Number.isNaN(value) ? 0 : value);
+    }, 0);
+
+    return {
+      total: devices.length,
+      active: devices.filter(d => d.active && !d.blocked).length,
+      blocked: devices.filter(d => d.blocked).length,
+      withPlaylist: devices.filter(d => d.playlist_id).length,
+      pendingRequests: requests.filter(r => r.status === 'pending').length,
+      paidActivations: approved.length,
+      revenue: revenue.toFixed(2)
+    };
+  }, [devices, requests]);
 
   const filteredDevices = devices.filter(d =>
     d.mac.toLowerCase().includes(query.toLowerCase())
   );
+
+  const recentPayments = requests
+    .filter(r => r.status === 'approved')
+    .slice(0, 10);
 
   return (
     <main className="app">
@@ -201,8 +195,14 @@ export default function App() {
 
         <div className="stat-card">
           <Clock3 />
-          <span>Pending Requests</span>
+          <span>Pending</span>
           <b>{stats.pendingRequests}</b>
+        </div>
+
+        <div className="stat-card success">
+          <DollarSign />
+          <span>Revenue</span>
+          <b>${stats.revenue}</b>
         </div>
       </section>
 
@@ -253,7 +253,7 @@ export default function App() {
           </p>
 
           <p className="muted">
-            Pending requests: {stats.pendingRequests}
+            Paid activations: {stats.paidActivations}
           </p>
         </div>
       </section>
@@ -338,8 +338,8 @@ export default function App() {
 
       <section className="card">
         <h2>
-          <Clock3 size={18}/>
-          Activation Requests ({requests.length})
+          <DollarSign size={18}/>
+          Payments & Activations ({requests.length})
         </h2>
 
         <div className="table">
@@ -372,7 +372,9 @@ export default function App() {
                     : 'pending'
                 }
               >
-                {request.status}
+                {request.status === 'approved'
+                  ? 'Paid / Approved'
+                  : request.status}
               </span>
 
               <div className="actions">
@@ -405,7 +407,46 @@ export default function App() {
         </div>
 
         {requests.length === 0 && (
-          <p className="muted">No activation requests found.</p>
+          <p className="muted">No payment or activation records found.</p>
+        )}
+      </section>
+
+      <section className="card">
+        <h2>
+          <Clock3 size={18}/>
+          Recent Payments
+        </h2>
+
+        <div className="table">
+          <div className="table-head">
+            <span>MAC</span>
+            <span>Plan</span>
+            <span>Amount</span>
+            <span>Status</span>
+            <span>Date</span>
+          </div>
+
+          {recentPayments.map(payment => (
+            <div className="table-row" key={payment.id}>
+              <b>{payment.mac}</b>
+
+              <span>{payment.plan}</span>
+
+              <span>{payment.price}</span>
+
+              <span className="good">
+                Payment Verified
+              </span>
+
+              <span>
+                {payment.created_at?.slice(0, 10) || '-'}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {recentPayments.length === 0 && (
+          <p className="muted">No recent payments yet.</p>
         )}
       </section>
     </main>

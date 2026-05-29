@@ -737,6 +737,28 @@ app.post("/activation-requests/:id/reject", async (req, res) => {
     });
   }
 });
+async function ensureActivationRequestsTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS activation_requests (
+      id SERIAL PRIMARY KEY,
+      mac TEXT NOT NULL,
+      plan TEXT NOT NULL,
+      price TEXT,
+      status TEXT DEFAULT 'pending',
+      transaction_id TEXT,
+      payer_email TEXT,
+      payer_name TEXT,
+      paypal_order_id TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`ALTER TABLE activation_requests ADD COLUMN IF NOT EXISTS transaction_id TEXT;`);
+  await pool.query(`ALTER TABLE activation_requests ADD COLUMN IF NOT EXISTS payer_email TEXT;`);
+  await pool.query(`ALTER TABLE activation_requests ADD COLUMN IF NOT EXISTS payer_name TEXT;`);
+  await pool.query(`ALTER TABLE activation_requests ADD COLUMN IF NOT EXISTS paypal_order_id TEXT;`);
+}
+
 function getPayPalBaseUrl() {
   return process.env.PAYPAL_MODE === "live"
     ? "https://api-m.paypal.com"
@@ -774,7 +796,6 @@ app.post("/paypal/create-order", async (req, res) => {
     }
 
     const amount = plan === "forever" ? "14.99" : "5.99";
-
     const token = await getPayPalAccessToken();
 
     const response = await axios.post(
@@ -823,6 +844,8 @@ app.post("/paypal/capture-order", async (req, res) => {
       });
     }
 
+    await ensureActivationRequestsTable();
+
     const token = await getPayPalAccessToken();
 
     const response = await axios.post(
@@ -846,7 +869,19 @@ app.post("/paypal/capture-order", async (req, res) => {
       });
     }
 
+    const capture =
+      response.data.purchase_units?.[0]?.payments?.captures?.[0];
+
+    const transactionId = capture?.id || orderID;
+    const payerEmail = response.data.payer?.email_address || null;
+
+    const payerName = [
+      response.data.payer?.name?.given_name,
+      response.data.payer?.name?.surname
+    ].filter(Boolean).join(" ") || null;
+
     const expireAt = plan === "forever" ? "2099-12-31" : "2028-12-31";
+    const price = plan === "forever" ? "$14.99" : "$5.99";
 
     await pool.query(
       `
@@ -863,13 +898,26 @@ app.post("/paypal/capture-order", async (req, res) => {
 
     await pool.query(
       `
-      INSERT INTO activation_requests (mac, plan, price, status)
-      VALUES ($1, $2, $3, 'approved')
+      INSERT INTO activation_requests (
+        mac,
+        plan,
+        price,
+        status,
+        transaction_id,
+        payer_email,
+        payer_name,
+        paypal_order_id
+      )
+      VALUES ($1, $2, $3, 'approved', $4, $5, $6, $7)
       `,
       [
         mac,
         plan,
-        plan === "forever" ? "$14.99" : "$5.99"
+        price,
+        transactionId,
+        payerEmail,
+        payerName,
+        orderID
       ]
     );
 
@@ -877,7 +925,10 @@ app.post("/paypal/capture-order", async (req, res) => {
       success: true,
       message: "Payment completed and MAC activated",
       mac,
-      expire_at: expireAt
+      expire_at: expireAt,
+      transaction_id: transactionId,
+      payer_email: payerEmail,
+      payer_name: payerName
     });
   } catch (error) {
     res.status(500).json({
@@ -886,4 +937,6 @@ app.post("/paypal/capture-order", async (req, res) => {
     });
   }
 });
+
+startServer();
 startServer();
