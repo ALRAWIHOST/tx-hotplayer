@@ -1,32 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Monitor,
-  Shield,
-  RefreshCcw,
-  Ban,
-  Search,
-  CheckCircle,
-  XCircle,
-  Database,
-  Trash2,
-  Unlock,
-  Clock3,
-  DollarSign,
-  Menu,
-  Home,
-  List,
-  Settings,
-  FileText,
-  LogOut,
-  Bell,
-  User,
-  Calendar,
-  Send,
-  Wifi,
-  Edit,
-  Download,
-  Filter,
-  Package
+  Server, Tv, Shield, RefreshCcw, Ban, Search, CheckCircle,
+  XCircle, Database, Trash2, Unlock, Clock3, DollarSign
 } from 'lucide-react';
 
 import './App.css';
@@ -36,23 +11,22 @@ const ONLINE_MINUTES = 5;
 
 function isOnline(lastSeen) {
   if (!lastSeen) return false;
-  const time = new Date(lastSeen).getTime();
-  if (Number.isNaN(time)) return false;
-  return (Date.now() - time) / 60000 < ONLINE_MINUTES;
+  const lastSeenTime = new Date(lastSeen).getTime();
+  if (Number.isNaN(lastSeenTime)) return false;
+  return (Date.now() - lastSeenTime) / 60000 < ONLINE_MINUTES;
 }
 
 function formatLastSeen(lastSeen) {
   if (!lastSeen) return '-';
-  const time = new Date(lastSeen);
-  if (Number.isNaN(time.getTime())) return '-';
-  return time.toLocaleString();
+  const lastSeenTime = new Date(lastSeen);
+  if (Number.isNaN(lastSeenTime.getTime())) return '-';
+  return lastSeenTime.toLocaleString();
 }
 
 export default function App() {
   const [devices, setDevices] = useState([]);
   const [playlists, setPlaylists] = useState([]);
   const [requests, setRequests] = useState([]);
-
   const [mac, setMac] = useState('');
   const [expireAt, setExpireAt] = useState('2026-12-31');
   const [query, setQuery] = useState('');
@@ -148,10 +122,10 @@ export default function App() {
     refreshAll();
   }, []);
 
-  const approvedPayments = requests.filter(r => r.status === 'approved');
-
   const stats = useMemo(() => {
-    const revenue = approvedPayments.reduce((sum, r) => {
+    const approved = requests.filter(r => r.status === 'approved');
+
+    const revenue = approved.reduce((sum, r) => {
       const value = Number(String(r.price || '0').replace('$', ''));
       return sum + (Number.isNaN(value) ? 0 : value);
     }, 0);
@@ -159,10 +133,10 @@ export default function App() {
     return {
       total: devices.length,
       active: devices.filter(d => d.active && !d.blocked).length,
-      online: devices.filter(d => isOnline(d.last_seen)).length,
       blocked: devices.filter(d => d.blocked).length,
       withPlaylist: devices.filter(d => d.playlist_id).length,
-      paidActivations: approvedPayments.length,
+      paidActivations: approved.length,
+      online: devices.filter(d => isOnline(d.last_seen)).length,
       revenue: revenue.toFixed(2)
     };
   }, [devices, requests]);
@@ -171,337 +145,234 @@ export default function App() {
     d.mac.toLowerCase().includes(query.toLowerCase())
   );
 
-  const recentPayments = approvedPayments.slice(0, 10);
+  const recentPayments = requests
+    .filter(r => r.status === 'approved')
+    .slice(0, 10);
 
   return (
-    <div className="admin-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <Shield size={42}/>
-          <div>
-            <b>TX HOTPLAYER</b>
-            <span>Admin</span>
-          </div>
+    <main className="app">
+      <header className="topbar">
+        <div>
+          <h1>
+            <Shield size={30}/>
+            TX HOTPLAYER Admin
+          </h1>
+          <p>Professional MAC Activation Dashboard</p>
         </div>
 
-        <nav className="side-nav">
-          <a className="active"><Home size={20}/> Dashboard</a>
-          <a><Monitor size={20}/> Devices</a>
-          <a><List size={20}/> Playlists</a>
-          <a><DollarSign size={20}/> Payments</a>
-          <a><Package size={20}/> Activations</a>
-          <a><Settings size={20}/> Settings</a>
-          <a><FileText size={20}/> Logs</a>
-        </nav>
-
-        <div className="revenue-box">
-          <span>Total Revenue</span>
-          <b>${stats.revenue}</b>
-          <small>This Month <em>0% ▲</em></small>
-        </div>
-
-        <button className="logout-btn">
-          <LogOut size={18}/>
-          Log Out
+        <button onClick={refreshAll}>
+          <RefreshCcw size={16}/>
+          Refresh
         </button>
-      </aside>
+      </header>
 
-      <main className="dashboard">
-        <header className="dashboard-header">
-          <div>
-            <div className="title-row">
-              <Menu size={25}/>
-              <h1>Dashboard</h1>
-            </div>
-            <p>Welcome back! Here's what's happening with your service.</p>
-          </div>
-
-          <div className="header-actions">
-            <div className="top-search">
-              <input
-                placeholder="Search MAC address..."
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-              />
-              <Search size={18}/>
-            </div>
-
-            <div className="bell">
-              <Bell size={20}/>
-              <span>2</span>
-            </div>
-
-            <div className="admin-user">
-              <div>A</div>
-              <span>Admin</span>
-            </div>
-          </div>
-        </header>
-
-        <div className="refresh-row">
-          <button onClick={refreshAll}>
-            <RefreshCcw size={18}/>
-            Refresh Data
-          </button>
+      <section className="stats">
+        <div className="stat-card">
+          <Tv />
+          <span>Total Devices</span>
+          <b>{stats.total}</b>
         </div>
 
-        <section className="stats-grid">
-          <div className="stat-card blue">
-            <Monitor />
-            <div>
-              <span>Total Devices</span>
-              <b>{stats.total}</b>
-              <small>All registered devices</small>
-            </div>
-          </div>
+        <div className="stat-card success">
+          <CheckCircle />
+          <span>Active</span>
+          <b>{stats.active}</b>
+        </div>
 
-          <div className="stat-card green">
-            <CheckCircle />
-            <div>
-              <span>Active Devices</span>
-              <b>{stats.active}</b>
-              <small>Currently active</small>
-            </div>
-          </div>
+        <div className="stat-card success">
+          <Clock3 />
+          <span>Online</span>
+          <b>{stats.online}</b>
+        </div>
 
-          <div className="stat-card orange">
-            <Wifi />
-            <div>
-              <span>Online Devices</span>
-              <b>{stats.online}</b>
-              <small>Online in last 5 minutes</small>
-            </div>
-          </div>
+        <div className="stat-card danger-card">
+          <XCircle />
+          <span>Blocked</span>
+          <b>{stats.blocked}</b>
+        </div>
 
-          <div className="stat-card red">
-            <XCircle />
-            <div>
-              <span>Blocked Devices</span>
-              <b>{stats.blocked}</b>
-              <small>Blocked devices</small>
-            </div>
-          </div>
+        <div className="stat-card">
+          <Database />
+          <span>With Playlist</span>
+          <b>{stats.withPlaylist}</b>
+        </div>
 
-          <div className="stat-card blue">
-            <DollarSign />
-            <div>
-              <span>Revenue</span>
-              <b>${stats.revenue}</b>
-              <small>Total paid</small>
-            </div>
-          </div>
-        </section>
+        <div className="stat-card success">
+          <DollarSign />
+          <span>Revenue</span>
+          <b>${stats.revenue}</b>
+        </div>
+      </section>
 
-        <section className="top-panels">
-          <div className="panel activate-panel">
-            <h2>
-              <Monitor size={20}/>
-              Activate New Device
-            </h2>
-
-            <form onSubmit={activateDevice}>
-              <div className="input-wrap">
-                <Monitor size={18}/>
-                <input
-                  placeholder="MAC Address (e.g. TX:75:C8:87:CB)"
-                  value={mac}
-                  onChange={e => setMac(e.target.value)}
-                />
-              </div>
-
-              <div className="input-wrap">
-                <Calendar size={18}/>
-                <input
-                  type="date"
-                  value={expireAt}
-                  onChange={e => setExpireAt(e.target.value)}
-                />
-              </div>
-
-              <button className="primary-orange">
-                <Send size={18}/>
-                Activate Device
-              </button>
-            </form>
-          </div>
-
-          <div className="panel">
-            <h2>
-              <Clock3 size={20}/>
-              Quick Overview
-            </h2>
-
-            <div className="overview-grid">
-              <div>
-                <Database/>
-                <span>Playlists Loaded</span>
-                <b>{playlists.length}</b>
-              </div>
-
-              <div>
-                <DollarSign/>
-                <span>Paid Activations</span>
-                <b>{stats.paidActivations}</b>
-              </div>
-
-              <div>
-                <Monitor/>
-                <span>Total Devices</span>
-                <b>{stats.total}</b>
-              </div>
-
-              <div>
-                <Wifi/>
-                <span>Online Devices</span>
-                <b>{stats.online}</b>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="panel table-panel">
-          <div className="panel-head">
-            <h2>
-              <Monitor size={21}/>
-              Devices ({loading ? '...' : filteredDevices.length})
-            </h2>
-
-            <div className="table-tools">
-              <div className="top-search small">
-                <input
-                  placeholder="Search by MAC..."
-                  value={query}
-                  onChange={e => setQuery(e.target.value)}
-                />
-                <Search size={17}/>
-              </div>
-
-              <button className="ghost-btn">
-                <Filter size={17}/>
-                Filter
-              </button>
-
-              <button className="blue-btn">
-                <Download size={17}/>
-                Export
-              </button>
-            </div>
-          </div>
-
-          <div className="modern-table devices-table">
-            <div className="modern-head">
-              <span>MAC Address</span>
-              <span>Status</span>
-              <span>Expires</span>
-              <span>Playlist</span>
-              <span>Online</span>
-              <span>Last Seen</span>
-              <span>Actions</span>
-            </div>
-
-            {filteredDevices.map(device => (
-              <div className="modern-row" key={device.id}>
-                <b>{device.mac}</b>
-
-                <span className={device.blocked ? 'pill red-pill' : device.active ? 'pill green-pill' : 'pill orange-pill'}>
-                  {device.blocked ? 'Blocked' : device.active ? 'Active' : 'Inactive'}
-                </span>
-
-                <span>{device.expire_at?.slice(0, 10) || '-'}</span>
-
-                <select
-                  value={device.playlist_id || ''}
-                  onChange={e => assignPlaylist(device.mac, e.target.value)}
-                >
-                  <option value="">No Playlist</option>
-                  {playlists.map(playlist => (
-                    <option key={playlist.id} value={playlist.id}>
-                      #{playlist.id} - {playlist.name.slice(0, 14)}
-                    </option>
-                  ))}
-                </select>
-
-                <span className={isOnline(device.last_seen) ? 'online-dot' : 'offline-dot'}>
-                  {isOnline(device.last_seen) ? 'Online' : 'Offline'}
-                </span>
-
-                <span>{formatLastSeen(device.last_seen)}</span>
-
-                <div className="action-icons">
-                  {device.blocked ? (
-                    <button className="icon-btn blue" onClick={() => unblockDevice(device.mac)}>
-                      <Unlock size={17}/>
-                    </button>
-                  ) : (
-                    <button className="icon-btn orange" onClick={() => blockDevice(device.mac)}>
-                      <Ban size={17}/>
-                    </button>
-                  )}
-
-                  <button className="icon-btn blue">
-                    <Edit size={17}/>
-                  </button>
-
-                  <button className="icon-btn red" onClick={() => deleteDevice(device.mac)}>
-                    <Trash2 size={17}/>
-                  </button>
-                </div>
-              </div>
-            ))}
-
-            {filteredDevices.length === 0 && (
-              <p className="empty">No devices found.</p>
-            )}
-          </div>
-
-          <div className="table-footer">
-            <span>Showing {filteredDevices.length} of {devices.length} devices</span>
-            <div>
-              <button className="page-btn">‹</button>
-              <button className="page-btn active">1</button>
-              <button className="page-btn">›</button>
-            </div>
-          </div>
-        </section>
-
-        <section className="panel table-panel">
+      <section className="layout">
+        <div className="card">
           <h2>
-            <DollarSign size={21}/>
-            Recent Payments
+            <Server size={18}/>
+            Activate Device
           </h2>
 
-          <div className="modern-table payments-modern-table">
-            <div className="modern-head">
-              <span>MAC</span>
-              <span>Customer</span>
-              <span>Email</span>
-              <span>Amount</span>
-              <span>Transaction</span>
-              <span>PayPal Order</span>
-              <span>Date</span>
-            </div>
+          <form onSubmit={activateDevice}>
+            <input
+              placeholder="MAC Address"
+              value={mac}
+              onChange={e => setMac(e.target.value)}
+            />
 
-            {recentPayments.map(payment => (
-              <div className="modern-row" key={payment.id}>
-                <b>{payment.mac}</b>
-                <span>{payment.payer_name || '-'}</span>
-                <span>{payment.payer_email || '-'}</span>
-                <span>{payment.price || '-'}</span>
-                <span>{payment.transaction_id ? payment.transaction_id.slice(0, 12) : '-'}</span>
-                <span>{payment.paypal_order_id ? payment.paypal_order_id.slice(0, 12) : '-'}</span>
-                <span>{payment.created_at?.slice(0, 10) || '-'}</span>
-              </div>
-            ))}
+            <input
+              type="date"
+              value={expireAt}
+              onChange={e => setExpireAt(e.target.value)}
+            />
 
-            {recentPayments.length === 0 && (
-              <div className="empty-payments">
-                <Package size={28}/>
-                <b>No recent payments yet.</b>
-              </div>
-            )}
+            <button>
+              Activate MAC
+            </button>
+          </form>
+        </div>
+
+        <div className="card">
+          <h2>
+            <Search size={18}/>
+            Search Device
+          </h2>
+
+          <input
+            placeholder="Search by MAC..."
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+          />
+
+          <p className="muted">Showing {filteredDevices.length} of {devices.length} devices.</p>
+          <p className="muted">Playlists loaded: {playlists.length}</p>
+          <p className="muted">Paid activations: {stats.paidActivations}</p>
+          <p className="muted">Online devices: {stats.online}</p>
+        </div>
+      </section>
+
+      <section className="card">
+        <h2>
+          <Tv size={18}/>
+          Devices {loading ? '...' : `(${filteredDevices.length})`}
+        </h2>
+
+        <div className="table">
+          <div className="table-head devices-table-head">
+            <span>MAC</span>
+            <span>Status</span>
+            <span>Online</span>
+            <span>Last Seen</span>
+            <span>Playlist</span>
+            <span>Expires</span>
+            <span>Actions</span>
           </div>
-        </section>
-      </main>
-    </div>
+
+          {filteredDevices.map(device => (
+            <div className="table-row devices-table-row" key={device.id}>
+              <b>{device.mac}</b>
+
+              <span className={device.blocked ? 'bad' : device.active ? 'good' : 'pending'}>
+                {device.blocked ? 'Blocked' : device.active ? 'Active' : 'Inactive'}
+              </span>
+
+              <span className={isOnline(device.last_seen) ? 'good' : 'bad'}>
+                {isOnline(device.last_seen) ? '🟢 Online' : '🔴 Offline'}
+              </span>
+
+              <span title={device.last_seen || ''}>
+                {formatLastSeen(device.last_seen)}
+              </span>
+
+              <select
+                value={device.playlist_id || ''}
+                onChange={e => assignPlaylist(device.mac, e.target.value)}
+              >
+                <option value="">No Playlist</option>
+
+                {playlists.map(playlist => (
+                  <option key={playlist.id} value={playlist.id}>
+                    #{playlist.id} - {playlist.name.slice(0, 12)}
+                  </option>
+                ))}
+              </select>
+
+              <span>
+                {device.expire_at?.slice(0, 10)}
+              </span>
+
+              <div className="actions">
+                {device.blocked ? (
+                  <button
+                    className="success-btn"
+                    onClick={() => unblockDevice(device.mac)}
+                  >
+                    <Unlock size={14}/>
+                    Unblock
+                  </button>
+                ) : (
+                  <button
+                    className="danger"
+                    onClick={() => blockDevice(device.mac)}
+                  >
+                    <Ban size={14}/>
+                    Block
+                  </button>
+                )}
+
+                <button
+                  className="delete-btn"
+                  onClick={() => deleteDevice(device.mac)}
+                >
+                  <Trash2 size={14}/>
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {filteredDevices.length === 0 && (
+          <p className="muted">No devices found.</p>
+        )}
+      </section>
+
+      <section className="card wide-card">
+        <h2>
+          <Clock3 size={18}/>
+          Recent Payments
+        </h2>
+
+        <div className="table payments-table recent-payments-table">
+          <div className="table-head">
+            <span>MAC</span>
+            <span>Customer</span>
+            <span>Email</span>
+            <span>Amount</span>
+            <span>Transaction</span>
+            <span>PayPal Order</span>
+            <span>Date</span>
+          </div>
+
+          {recentPayments.map(payment => (
+            <div className="table-row" key={payment.id}>
+              <b>{payment.mac}</b>
+              <span>{payment.payer_name || '-'}</span>
+              <span title={payment.payer_email || ''}>{payment.payer_email || '-'}</span>
+              <span>{payment.price || '-'}</span>
+              <span title={payment.transaction_id || ''}>
+                {payment.transaction_id ? payment.transaction_id.slice(0, 12) : '-'}
+              </span>
+              <span title={payment.paypal_order_id || ''}>
+                {payment.paypal_order_id ? payment.paypal_order_id.slice(0, 12) : '-'}
+              </span>
+              <span>{payment.created_at?.slice(0, 10) || '-'}</span>
+            </div>
+          ))}
+        </div>
+
+        {recentPayments.length === 0 && (
+          <p className="muted">No recent payments yet.</p>
+        )}
+      </section>
+    </main>
   );
 }
